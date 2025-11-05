@@ -4,4 +4,9 @@ huggingface_hub
 accelerate
 numpy
 matplotlib
+<<<<<<< HEAD
 psutil
+=======
+psutil
+tenseal
+>>>>>>> f38776e (phase 1 & 2 changes)
