@@ -1,0 +1,5 @@
+# Server endpoint configuration
+server:
+  base_url: "https://nonvocalic-stetson-unelderly.ngrok-free.dev"
+  infer_endpoint: "/api/infer"
+  auth_token: "dbskdjbvsjhdfjhsdgfkjsdgfkjsdgfkjsd"
