@@ -18,6 +18,10 @@ def test_client_post(monkeypatch):
             "auth_token": "dbskdjbvsjhdfjhsdgfkjsdgfkjsdgfkjsd"
         })
 
+        # Mock TenSEAL vector deserialization
+        mock_vector = type("MockVector", (), {"decrypt": lambda: [0.1, 0.2, 0.3]})
+        monkeypatch.setattr(client.ts, "ckks_vector_from", lambda ctx, data: mock_vector)
+
         result = client.main("Integration test prompt")
         assert result is None  # ensure function completes
 
