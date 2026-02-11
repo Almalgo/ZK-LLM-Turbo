@@ -1,5 +1,7 @@
 # Server endpoint configuration
 server:
-  base_url: "https://nonvocalic-stetson-unelderly.ngrok-free.dev"
+  base_url: "http://localhost:8000"
   infer_endpoint: "/api/infer"
+  session_endpoint: "/api/session"
+  layer_endpoint: "/api/layer"
   auth_token: "dbskdjbvsjhdfjhsdgfkjsdgfkjsdgfkjsd"

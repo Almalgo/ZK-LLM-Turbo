@@ -4,5 +4,10 @@ ckks:
   coeff_mod_bit_sizes: [60, 40, 40, 60]
   global_scale: 1099511627776  # 2^40
   use_galois_keys: true
-  use_relin_keys: false
+  use_relin_keys: true
 
+# Inference configuration
+inference:
+  model_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+  num_encrypted_layers: 1
+  num_tokens_to_generate: 5

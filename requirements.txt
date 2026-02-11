@@ -1,0 +1,8 @@
+torch>=2.1.0
+transformers>=4.33.0
+huggingface_hub
+accelerate
+numpy
+matplotlib
+psutil
+tenseal
