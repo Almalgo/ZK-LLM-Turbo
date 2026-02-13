@@ -8,8 +8,11 @@ The system now enables:
 - Privacy-preserving protocol: server receives only a public CKKS context (no secret key) and cannot decrypt any data
 - Configurable encrypted layers (default 1) with remaining layers processed in plaintext via PyTorch
 - End-to-end token generation using TinyLlama 1.1B with greedy decoding
+- **Batched HTTP requests**: all tokens in a generation step are sent in a single request per round (4 requests per step instead of 4 x seq_len)
+- **KV caching**: after the initial prompt, only the single new token is processed through all layers — encrypted layer caches K/V in NumPy, plaintext layers use PyTorch's DynamicCache
+- **Interactive CLI**: users can send arbitrary prompts, with optional `--logs` and `--stats` flags
 
-This milestone transitions the project from a stub architecture (server decrypted and returned dummy data) to real encrypted computation.
+This milestone transitions the project from a stub architecture (server decrypted and returned dummy data) to real encrypted computation with practical performance optimizations.
 
 # 2. Project Objective
 
@@ -24,7 +27,7 @@ Milestone 4 implements the complete split-inference protocol for TinyLlama's dec
 
 - Hardware: WSL2 on Windows (Linux 6.6.87.2-microsoft-standard-WSL2)
 - Operating System: Ubuntu (Python 3.12.3)
-- Language: Python 3.12 within a virtual environment (`zk-env/`)
+- Language: Python 3.12 within a virtual environment (`.venv/`)
 - Server runtime: FastAPI on Uvicorn with lifespan model loading
 - Client runtime: Python with NumPy for non-linear ops
 - Encryption library: TenSEAL (CKKS scheme)
@@ -42,38 +45,54 @@ The split-inference protocol separates these: the server handles linear ops on e
 
 ## 4.2 Protocol: 4 Round-Trips Per Layer
 
-Each TinyLlama decoder layer requires 4 client-server round-trips:
+Each TinyLlama decoder layer requires 4 client-server round-trips. All tokens in a step are batched into a single HTTP request per round:
 
 ```
 Round 1: Q/K/V Projections
-  Client: RMSNorm(X) → encrypt → send Enc(X_normed)
-  Server: Enc(Q)=Enc(X)@W_q, Enc(K)=Enc(X)@W_k, Enc(V)=Enc(X)@W_v
-  Server → Client: Enc(Q), Enc(K), Enc(V)
+  Client: RMSNorm(X) → encrypt all tokens → send batch
+  Server: For each token: Enc(Q)=Enc(X)@W_q, Enc(K)=Enc(X)@W_k, Enc(V)=Enc(X)@W_v
+  Server → Client: [Enc(Q0),Enc(K0),Enc(V0), Enc(Q1),Enc(K1),Enc(V1), ...]
 
 Round 2: O Projection
-  Client: decrypt Q,K,V → RoPE → attention(softmax(QK^T/√d)·V) → encrypt
-  Server: Enc(o_out) = Enc(attn) @ W_o
-  Server → Client: Enc(o_out)
+  Client: decrypt Q,K,V → RoPE → attention(softmax(QK^T/sqrt(d))·V) → encrypt
+  Server: For each token: Enc(o_out) = Enc(attn) @ W_o
+  Server → Client: [Enc(o0), Enc(o1), ...]
 
 Round 3: FFN Gate + Up Projections
   Client: decrypt → residual + RMSNorm → encrypt
-  Server: Enc(gate)=Enc(X)@W_gate, Enc(up)=Enc(X)@W_up
-  Server → Client: Enc(gate_parts), Enc(up_parts)
+  Server: For each token: Enc(gate)=Enc(X)@W_gate, Enc(up)=Enc(X)@W_up
+  Server → Client: [gate_parts..., up_parts...] per token
 
 Round 4: FFN Down Projection
-  Client: decrypt → SiLU(gate)*up → encrypt
-  Server: Enc(down) = sum(Enc(part_i) @ W_down_i)
-  Server → Client: Enc(down)
+  Client: decrypt → SiLU(gate)*up → encrypt chunks
+  Server: For each token: Enc(down) = sum(Enc(part_i) @ W_down_i)
+  Server → Client: [Enc(down0), Enc(down1), ...]
   Client: decrypt → residual → next layer input
 ```
 
-## 4.3 Dimension Splitting
+## 4.3 KV Caching
+
+After the initial prompt is processed, subsequent token generation uses KV caching to avoid redundant computation:
+
+**Encrypted layer cache** (client-side NumPy):
+- After Round 1, the client stores the rotated K and V vectors for all processed tokens
+- On subsequent steps, only the new token's Q/K/V are computed via the server (1 encrypt + 1 HTTP request)
+- Attention is computed using the new Q against the full cached K/V
+
+**Plaintext layer cache** (PyTorch DynamicCache):
+- Each plaintext decoder layer stores its KV pairs in a shared `DynamicCache` object
+- On subsequent steps, only the new token's hidden state is passed through each layer
+- PyTorch's SDPA handles causal masking automatically (q_len=1 attends to all past)
+
+**Impact**: For a 6-token prompt generating 5 tokens, total tokens processed through all layers drops from 40 (6+7+8+9+10) to 10 (6+1+1+1+1) — a 4x reduction.
+
+## 4.4 Dimension Splitting
 
 CKKS with `poly_modulus_degree=8192` provides 4096 slots per ciphertext. TinyLlama's FFN intermediate dimension is 5632, which exceeds this limit. The solution:
 - **Split output** (gate_proj, up_proj: 2048 → 5632): split weight matrix columns into chunks of ≤4096, producing 2 ciphertexts
 - **Split input** (down_proj: 5632 → 2048): split input vector and weight matrix rows, multiply each chunk, sum the encrypted results
 
-## 4.4 Session Management
+## 4.5 Session Management
 
 The client creates a CKKS context with a secret key, then serializes it **without the secret key** and sends it to the server. The server stores this public context per session and uses it for all HE operations. The server can compute on encrypted data but cannot decrypt any ciphertexts.
 
@@ -92,7 +111,7 @@ The client creates a CKKS context with a secret key, then serializes it **withou
 
 **Problem**: The original `extract_embeddings()` ran a full forward pass through all 22 layers using `AutoModel`, returning `last_hidden_state`. This was architecturally wrong — we need the initial embedding before any layers process it.
 
-**Fix**: Changed to use `model.model.embed_tokens(input_ids)` only, which returns the raw token embeddings (seq_len × 2048) without any layer processing. Switched to `AutoModelForCausalLM` for access to `lm_head`. Added model caching to avoid reloading 1.1B parameters on every call.
+**Fix**: Changed to use `model.model.embed_tokens(input_ids)` only, which returns the raw token embeddings (seq_len x 2048) without any layer processing. Switched to `AutoModelForCausalLM` for access to `lm_head`. Added model caching to avoid reloading 1.1B parameters on every call.
 
 ## 5.3 Client-Side Non-Linear Operations (Step 6)
 
@@ -101,40 +120,42 @@ Implemented in `client/inference/nonlinear_ops.py`:
 | Operation | Description | Validation |
 |-----------|-------------|------------|
 | `rms_norm(x, weight, eps)` | Matches PyTorch `LlamaRMSNorm` | Tested against PyTorch reference |
-| `silu(x)` | x × σ(x), matches `torch.nn.functional.silu` | Tested against PyTorch reference |
+| `silu(x)` | x * sigma(x), matches `torch.nn.functional.silu` | Tested against PyTorch reference |
 | `softmax(x, axis)` | Numerically stable (subtract max) | Tested: sums to 1, handles large values |
 | `compute_attention(q, k, v)` | GQA with 32 query / 4 KV heads, causal mask | Shape tests, single-token correctness |
 | `apply_rotary_embeddings(q, k)` | RoPE positional encoding | Integrated in layer protocol |
+| `apply_rotary_embeddings_at_positions(q, k, positions)` | RoPE with explicit position indices for KV cache | Used in incremental generation |
+| `compute_attention_cached(q, k, v)` | Attention supporting q_len != kv_len for KV cache | Initial pass (causal) + incremental (no mask) |
 
 ## 5.4 Server-Side HE Operations (Step 4)
 
 Implemented in `server/inference/he_ops.py`:
 
-| Function | Input → Output | Use Case |
+| Function | Input -> Output | Use Case |
 |----------|----------------|----------|
-| `he_matmul(enc, W)` | Enc(D_in) → Enc(D_out) | Q, K, V, O projections |
-| `he_matmul_split_output(enc, W)` | Enc(D_in) → [Enc(chunk)...] | gate_proj, up_proj (2048→5632) |
-| `he_matmul_split_input(encs, W, sizes)` | [Enc(chunk)...] → Enc(D_out) | down_proj (5632→2048) |
+| `he_matmul(enc, W)` | Enc(D_in) -> Enc(D_out) | Q, K, V, O projections |
+| `he_matmul_split_output(enc, W)` | Enc(D_in) -> [Enc(chunk)...] | gate_proj, up_proj (2048->5632) |
+| `he_matmul_split_input(encs, W, sizes)` | [Enc(chunk)...] -> Enc(D_out) | down_proj (5632->2048) |
 
 All use TenSEAL's `enc_vector.mm(weight_matrix)` which computes the encrypted vector-matrix product.
 
 ## 5.5 Server Endpoint Design (Steps 3, 5)
 
-Two new endpoints:
+Two endpoints:
 
 **`POST /api/session`** — Receives base64-encoded public CKKS context, stores per session, returns `session_id`.
 
-**`POST /api/layer`** — Accepts:
+**`POST /api/layer`** — Accepts batched encrypted vectors:
 ```json
 {
   "session_id": "...",
   "layer_idx": 0,
   "operation": "qkv",
-  "encrypted_vectors_b64": ["..."],
+  "encrypted_vectors_b64": ["token0_b64", "token1_b64", "..."],
   "chunk_sizes": [4096, 1536]
 }
 ```
-Operations: `qkv`, `o_proj`, `ffn_gate_up`, `ffn_down`. Returns encrypted results without ever accessing plaintext.
+Operations: `qkv`, `o_proj`, `ffn_gate_up`, `ffn_down`. All operations loop over input vectors to support batched processing. For `ffn_down`, the batch size is inferred from `len(vectors) // len(chunk_sizes)`. Returns encrypted results without ever accessing plaintext.
 
 The model is loaded once at server startup via FastAPI lifespan. Layer weights are extracted, transposed (Linear stores `(out, in)`, matmul needs `(in, out)`), and cached per layer.
 
@@ -145,12 +166,75 @@ The `generate()` function implements the full inference pipeline:
 1. Tokenize prompt
 2. Extract initial embeddings (`embed_tokens` only)
 3. Create CKKS context and send public context to server
-4. For layers 0..N-1: process encrypted via `EncryptedLayerProtocol` (4 round-trips each)
-5. For layers N..21: process plaintext via PyTorch directly
-6. Apply final RMSNorm + lm_head → logits
-7. Greedy decode → append token → repeat
+4. For each token to generate:
+   a. Extract embeddings (all tokens on step 0, only new token on subsequent steps)
+   b. For layers 0..N-1: process encrypted via `EncryptedLayerProtocol` with KV cache
+   c. For layers N..21: process plaintext via PyTorch with DynamicCache
+   d. Apply final RMSNorm + lm_head -> logits
+   e. Greedy decode -> append token -> repeat
 
 The number of encrypted layers is configurable (default 1).
+
+## 5.7 Performance Optimizations
+
+### Batched HTTP Requests
+
+Previously, each token required a separate HTTP request per round — for a 6-token prompt, that was 24 HTTP requests just for Round 1. Now all tokens are batched into a single request per round.
+
+| Metric | Before | After |
+|--------|--------|-------|
+| HTTP requests per step (6 tokens) | 24 | 4 |
+| HTTP requests per step (1 token, cached) | 4 | 4 |
+| Total for 6-token prompt + 5 generated | ~160 | ~20 |
+
+### KV Caching
+
+| Component | Cache Type | Effect |
+|-----------|-----------|--------|
+| Encrypted layers | NumPy arrays (K, V after RoPE) | Only new token through 4 HE round-trips |
+| Plaintext layers | PyTorch DynamicCache | Only new token through 21 decoder layers |
+
+The DynamicCache is pre-filled with empty placeholder tensors for encrypted layer indices so that plaintext layer indices align correctly.
+
+### Combined Impact
+
+For a 6-token prompt generating 5 tokens:
+- **HE matmuls**: reduced from ~400 to ~100 (4x fewer)
+- **Plaintext layer passes**: reduced from 21 x 40 = 840 to 21 x 10 = 210 (4x fewer)
+- **HTTP round-trips**: reduced from ~160 to ~20 (8x fewer)
+
+## 5.8 CLI Interface
+
+The client now supports arbitrary prompts and configurable behavior:
+
+```bash
+python -m client.client [OPTIONS]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--prompt` | *(interactive)* | Input text for inference |
+| `--num-tokens` | 5 | Number of tokens to generate |
+| `--num-encrypted-layers` | 1 | Layers processed via encrypted server inference |
+| `--logs` | off | Enable verbose JSON logging (silent by default) |
+| `--stats` | off | Print per-phase timing breakdown table |
+
+When `--stats` is enabled, the client prints a table after generation:
+
+```
++-------------------------+----------+--------+
+| Phase                   | Time (s) |      % |
++-------------------------+----------+--------+
+| Model loading           |    12.34 |  18.3% |
+| Session setup           |     1.23 |   1.8% |
+| Embedding extraction    |     0.15 |   0.2% |
+| Encrypted layers        |    45.67 |  67.8% |
+| Plaintext layers        |     7.89 |  11.7% |
+| Token decode            |     0.12 |   0.2% |
++-------------------------+----------+--------+
+| Total                   |    67.40 |        |
++-------------------------+----------+--------+
+```
 
 # 6. TinyLlama Model Architecture
 
@@ -192,12 +276,12 @@ These parameters provide a balance between security, precision, and computationa
 | `client/config/endpoints.yaml` | Updated | Added session/layer endpoints |
 | `client/model/embedding_extractor.py` | Rewritten | embed_tokens only, caching, model components |
 | `client/encryption/ckks_context.py` | Updated | Added `serialize_public_context()` |
-| `client/client.py` | Rewritten | Full generate() pipeline |
+| `client/client.py` | Rewritten | Full generate() pipeline with KV cache, argparse CLI, --logs/--stats |
 | `client/inference/__init__.py` | New | Package init |
-| `client/inference/nonlinear_ops.py` | New | RMSNorm, SiLU, softmax, attention, RoPE |
-| `client/inference/layer_protocol.py` | New | 4-round-trip encrypted layer protocol |
+| `client/inference/nonlinear_ops.py` | Updated | Added `apply_rotary_embeddings_at_positions`, `compute_attention_cached` |
+| `client/inference/layer_protocol.py` | Rewritten | Batched requests, KV caching, position-aware RoPE |
 | `server/server.py` | Updated | Lifespan model loading, new routers |
-| `server/handlers/inference_handler.py` | Rewritten | `/api/layer` endpoint |
+| `server/handlers/inference_handler.py` | Rewritten | `/api/layer` with batched token processing |
 | `server/handlers/session_handler.py` | New | `/api/session` endpoint |
 | `server/model/__init__.py` | New | Package init |
 | `server/model/weight_manager.py` | New | Weight extraction and caching |
@@ -211,7 +295,8 @@ These parameters provide a balance between security, precision, and computationa
 | `client/tests/test_nonlinear_ops.py` | New | Nonlinear ops vs PyTorch |
 | `client/tests/test_public_context.py` | New | Public context security tests |
 | `client/tests/test_e2e_accuracy.py` | New | Encrypted vs plaintext accuracy |
-| `notebooks/milestone4_demo.ipynb` | New | Interactive demo notebook |
+| `notebooks/milestone4_demo.ipynb` | Updated | Added KV caching and batching demos |
+| `README.md` | Updated | Local run guide, CLI options, KV caching notes |
 
 # 9. Testing Strategy
 
@@ -232,27 +317,29 @@ These parameters provide a balance between security, precision, and computationa
 ## 9.3 End-to-End Accuracy (`client/tests/test_e2e_accuracy.py`)
 
 - Encrypt-decrypt roundtrip within CKKS tolerance (~0.001)
-- Encrypted matmul matches plaintext at 64→32 dims (atol=0.05)
-- Encrypted matmul at full 2048→256 dims (atol=0.1)
+- Encrypted matmul matches plaintext at 64->32 dims (atol=0.05)
+- Encrypted matmul at full 2048->256 dims (atol=0.1)
 - RMSNorm determinism
 - SiLU correctness
 
 ## 9.4 HE Operations (`server/tests/test_he_ops.py`)
 
-- Small-dimension matmul (8→4) within 0.01 tolerance
-- Hidden-dimension matmul (2048→256) within 0.1 tolerance
-- Full hidden-to-hidden matmul (2048→2048) within 0.5 tolerance
+- Small-dimension matmul (8->4) within 0.01 tolerance
+- Hidden-dimension matmul (2048->256) within 0.1 tolerance
+- Full hidden-to-hidden matmul (2048->2048) within 0.5 tolerance
 - Split-output matmul for dims > 4096 slots
 - Split-input matmul with chunk reconstruction
 
 ## 9.5 Demonstration Notebook (`notebooks/milestone4_demo.ipynb`)
 
-Five sections:
+Seven sections:
 1. CKKS public context proof (server cannot decrypt)
 2. HE matrix multiplication at multiple scales with error analysis
 3. Non-linear operations comparison vs PyTorch
 4. Timing breakdown: encrypt, serialize, matmul, decrypt per token
 5. Accuracy comparison: encrypted vs plaintext Q-projection with cosine similarity
+6. KV caching: demonstrate cached vs uncached attention computation
+7. Batching: show reduced HTTP request count
 
 # 10. Challenges & Tradeoffs
 
@@ -264,11 +351,11 @@ The 4096 slot limit (from `poly_modulus_degree=8192`) requires splitting FFN vec
 
 ## 10.2 Per-Token Processing
 
-Each token in the sequence must be encrypted and processed individually, as CKKS operates on fixed-length vectors. For a sequence of length L, each round-trip is repeated L times, making the total cost O(4 × L × num_encrypted_layers).
+Each token in the sequence must be encrypted and processed individually, as CKKS operates on fixed-length vectors. With batched requests and KV caching, the cost is now O(4 x num_encrypted_layers) HTTP requests per generated token (after the initial prompt), rather than O(4 x seq_len x num_encrypted_layers).
 
 ## 10.3 Accumulated CKKS Error
 
-CKKS is an approximate scheme — each operation introduces small numerical errors. For a single matmul at 2048 dimensions, the error is typically < 0.1. Across multiple chained operations (Q projection → attention → O projection → FFN), errors may accumulate. Using only 1 encrypted layer by default mitigates this.
+CKKS is an approximate scheme — each operation introduces small numerical errors. For a single matmul at 2048 dimensions, the error is typically < 0.1. Across multiple chained operations (Q projection -> attention -> O projection -> FFN), errors may accumulate. Using only 1 encrypted layer by default mitigates this.
 
 ## 10.4 Weight Transposition
 
@@ -277,6 +364,10 @@ PyTorch `nn.Linear` stores weights as `(out_features, in_features)`. HE matmul r
 ## 10.5 Embedding Extraction Bug
 
 The original implementation used `AutoModel` with a full forward pass (`last_hidden_state`), which meant the "embeddings" already had all 22 layers applied. This made split inference meaningless. Fixed by using `embed_tokens` only.
+
+## 10.6 DynamicCache Index Alignment
+
+When using PyTorch's `DynamicCache` for plaintext layers while skipping encrypted layers, the cache's internal list must have placeholder entries for the skipped layer indices. Without pre-filling, `DynamicCache.update()` appends at the wrong list index, causing an `IndexError`. Fixed by pre-filling with empty `(1, num_kv_heads, 0, head_dim)` tensors for each encrypted layer.
 
 # 11. Security Model
 
@@ -296,7 +387,7 @@ The original implementation used `AutoModel` with a full forward pass (`last_hid
 
 - Secret key (never leaves the client)
 - All non-linear operations (executed in plaintext on client)
-- Final token selection (logits → greedy decode)
+- Final token selection (logits -> greedy decode)
 
 ## 11.4 Trust Assumptions
 
@@ -306,13 +397,14 @@ The original implementation used `AutoModel` with a full forward pass (`last_hid
 
 # 12. Next Steps
 
-- **Runtime validation**: Set up virtual environment and run full test suite
-- **Performance benchmarking**: Measure per-round-trip and per-layer timing
+- ~~Batched token processing: reduce HTTP round-trips~~ **Done** (batched requests)
+- ~~Performance benchmarking: per-phase timing~~ **Done** (`--stats` flag)
 - **Multi-layer encrypted inference**: Test with 2+ encrypted layers and measure accuracy degradation
-- **Batched token processing**: Optimize to reduce number of network round-trips
 - **Zero-knowledge proofs**: Introduce verifiable computation proofs for server operations
 - **Payload compression**: Reduce ciphertext sizes for faster network transfer
 - **Ciphertext depth management**: Monitor and manage multiplicative depth across chained operations
+- **Streaming output**: Display tokens as they are generated rather than waiting for full completion
+- **GPU acceleration**: Offload plaintext layer inference to GPU for faster processing
 
 # 13. Conclusion
 
@@ -322,6 +414,9 @@ Key achievements:
 - Real homomorphic computation replaces the dummy stub from Milestone 3
 - Public context sharing ensures the server cannot decrypt any data
 - Dimension splitting handles FFN operations that exceed CKKS slot limits
+- Batched HTTP requests reduce network round-trips by up to 8x
+- KV caching reduces redundant computation by up to 4x for multi-token generation
+- Interactive CLI with `--logs` (verbose debugging) and `--stats` (timing breakdown) flags
 - Comprehensive test suite validates correctness against PyTorch references
 - Interactive notebook demonstrates all building blocks with timing and accuracy analysis
 

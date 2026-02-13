@@ -62,14 +62,50 @@ def setup_session(context, server_cfg):
     return session_id
 
 
-def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1):
+def _print_stats(stats):
+    """Print a timing breakdown table."""
+    rows = [
+        ("Model loading", stats["model_loading"]),
+        ("Session setup", stats["session_setup"]),
+        ("Embedding extraction", stats["embedding"]),
+        ("Encrypted layers", stats["encrypted"]),
+        ("Plaintext layers", stats["plaintext"]),
+        ("Token decode", stats["decode"]),
+    ]
+    total = stats["total"]
+
+    print("\n+-------------------------+----------+--------+")
+    print("| Phase                   | Time (s) |      % |")
+    print("+-------------------------+----------+--------+")
+    for label, t in rows:
+        pct = (t / total * 100) if total > 0 else 0
+        print(f"| {label:<23s} | {t:>8.2f} | {pct:>5.1f}% |")
+    print("+-------------------------+----------+--------+")
+    print(f"| {'Total':<23s} | {total:>8.2f} |        |")
+    print("+-------------------------+----------+--------+")
+
+
+def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
+             show_stats: bool = False):
     """Generate tokens using split encrypted/plaintext inference.
 
     Args:
         prompt: input text
         num_tokens: number of tokens to generate
         num_encrypted_layers: how many initial layers to process encrypted (default 1)
+        show_stats: print timing breakdown table after generation
     """
+    stats = {
+        "model_loading": 0.0,
+        "session_setup": 0.0,
+        "embedding": 0.0,
+        "encrypted": 0.0,
+        "plaintext": 0.0,
+        "decode": 0.0,
+        "total": 0.0,
+    }
+    total_start = time.perf_counter()
+
     cid = str(uuid.uuid4())
     logger.info("Starting generation", extra={"extra": {
         "cid": cid, "prompt": prompt[:50],
@@ -81,19 +117,20 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1):
 
     # Load tokenizer and model
     print("Loading model...")
+    t0 = time.perf_counter()
     tokenizer = load_tokenizer()
     components = get_model_components()
     model_config = components["config"]
     total_layers = model_config.num_hidden_layers  # 22 for TinyLlama
-
     num_encrypted_layers = min(num_encrypted_layers, total_layers)
-
-    # Create CKKS context
     context = create_ckks_context()
+    stats["model_loading"] = time.perf_counter() - t0
 
     # Setup server session
     print("Establishing encrypted session...")
+    t0 = time.perf_counter()
     session_id = setup_session(context, server_cfg)
+    stats["session_setup"] = time.perf_counter() - t0
 
     # Create layer protocol for encrypted rounds
     protocol = EncryptedLayerProtocol(
@@ -118,17 +155,19 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1):
     for step in range(num_tokens):
         step_start = time.perf_counter()
 
+        # --- Embedding extraction ---
+        t0 = time.perf_counter()
         if step == 0:
-            # Initial step: process all tokens
-            embeddings = extract_embeddings(input_ids)  # (seq_len, 2048)
+            embeddings = extract_embeddings(input_ids)
         else:
-            # Incremental: process only the new token
-            embeddings = extract_embeddings(input_ids[:, -1:])  # (1, 2048)
+            embeddings = extract_embeddings(input_ids[:, -1:])
+        stats["embedding"] += time.perf_counter() - t0
 
         hidden_states = embeddings
         curr_seq_len = hidden_states.shape[0]
 
-        # Process encrypted layers
+        # --- Encrypted layers ---
+        t0 = time.perf_counter()
         for layer_idx in range(num_encrypted_layers):
             layer = components["layers"][layer_idx]
             input_ln_w = layer.input_layernorm.weight.detach().numpy()
@@ -138,8 +177,10 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1):
                 hidden_states, layer_idx, input_ln_w, post_attn_ln_w, eps,
                 position_offset=position_offset,
             )
+        stats["encrypted"] += time.perf_counter() - t0
 
-        # Process plaintext layers with KV cache
+        # --- Plaintext layers ---
+        t0 = time.perf_counter()
         device = next(components["layers"][0].parameters()).device
         hidden_t = torch.tensor(hidden_states, dtype=torch.float32, device=device).unsqueeze(0)
         position_ids = torch.arange(
@@ -149,7 +190,6 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1):
         if plaintext_cache is None:
             from transformers import DynamicCache
             plaintext_cache = DynamicCache()
-            # Pre-fill cache slots for encrypted layers so layer indices align
             num_kv_heads = model_config.num_key_value_heads
             head_dim = model_config.hidden_size // model_config.num_attention_heads
             for _ in range(num_encrypted_layers):
@@ -173,18 +213,20 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1):
 
         hidden_states = hidden_t.squeeze(0).numpy()
         position_offset += curr_seq_len
+        stats["plaintext"] += time.perf_counter() - t0
 
-        # Final RMSNorm + lm_head → logits (only last token)
+        # --- Token decode (final norm + lm_head + argmax) ---
+        t0 = time.perf_counter()
         final_norm_w = components["final_norm_weight"]
         eps = model_config.rms_norm_eps
         last_hidden = rms_norm(hidden_states[-1:], final_norm_w, eps)
 
-        lm_head_w = components["lm_head_weight"]  # (vocab_size, hidden_dim)
-        logits = last_hidden @ lm_head_w.T  # (1, vocab_size)
+        lm_head_w = components["lm_head_weight"]
+        logits = last_hidden @ lm_head_w.T
 
-        # Greedy decode
         next_token_id = int(np.argmax(logits[0]))
         generated_tokens.append(next_token_id)
+        stats["decode"] += time.perf_counter() - t0
 
         next_token_text = tokenizer.decode([next_token_id])
         elapsed = time.perf_counter() - step_start
@@ -194,19 +236,23 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1):
             "cid": cid, "token_id": next_token_id, "step": step,
         }})
 
-        # Append token for next step
         new_token = torch.tensor([[next_token_id]], dtype=input_ids.dtype)
         input_ids = torch.cat([input_ids, new_token], dim=1)
 
     # Decode full output
     output_text = tokenizer.decode(generated_tokens, skip_special_tokens=True)
     full_text = prompt + output_text
+    stats["total"] = time.perf_counter() - total_start
 
     logger.info("Generation complete", extra={"extra": {
         "cid": cid, "generated": output_text, "full": full_text,
     }})
 
     print(f"\nFull output: {full_text}")
+
+    if show_stats:
+        _print_stats(stats)
+
     return full_text
 
 
@@ -216,6 +262,7 @@ def main():
     parser.add_argument("--num-tokens", type=int, default=5, help="Number of tokens to generate (default: 5)")
     parser.add_argument("--num-encrypted-layers", type=int, default=1, help="Number of initial layers processed encrypted (default: 1)")
     parser.add_argument("--logs", action="store_true", help="Enable verbose JSON logging output")
+    parser.add_argument("--stats", action="store_true", help="Print timing breakdown table after generation")
     args = parser.parse_args()
 
     if not args.logs:
@@ -229,6 +276,7 @@ def main():
         prompt=prompt,
         num_tokens=args.num_tokens,
         num_encrypted_layers=args.num_encrypted_layers,
+        show_stats=args.stats,
     )
 
 

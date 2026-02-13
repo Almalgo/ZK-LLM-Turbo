@@ -154,6 +154,7 @@ python -m client.client --prompt "The capital of France is"
 | `--num-tokens` | `5` | Number of tokens to generate |
 | `--num-encrypted-layers` | `1` | How many initial layers to process via encrypted server inference |
 | `--logs` | off | Enable verbose JSON logging output (silent by default) |
+| `--stats` | off | Print a timing breakdown table after generation |
 
 **Examples:**
 
@@ -166,6 +167,9 @@ python -m client.client --prompt "Once upon a time" --num-tokens 10 --num-encryp
 
 # Enable verbose logging for debugging
 python -m client.client --prompt "Hello world" --logs
+
+# Show timing breakdown
+python -m client.client --prompt "Hello world" --stats
 ```
 
 The client will:
