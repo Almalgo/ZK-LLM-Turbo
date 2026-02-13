@@ -119,49 +119,81 @@ pip install -r requirements.txt
 
 ---
 
-## ▶Running the Client
+## Running Locally
 
-```
-cd client
-python client.py
-```
+Running split inference requires **two terminals** — one for the server and one for the client.
 
-Performs:
+### 1. Start the Server
 
-* Tokenization
-* Embedding extraction
-* CKKS encryption
-* Payload build
-* HTTPS POST
-* Decrypts result
-* Logs everything
-
----
-
-## Running the Server
-
-```
-cd server
-uvicorn server:app --reload --host 0.0.0.0 --port 8000
+```bash
+cd /path/to/ZK-LLM-Turbo
+uvicorn server.server:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Optional: expose via HTTPS
+The server loads TinyLlama 1.1B at startup and exposes two endpoints:
 
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/session` | Establish encrypted session (receives public CKKS context) |
+| `POST /api/layer` | Perform homomorphic operations on encrypted vectors |
+
+### 2. Run the Client
+
+Once the server is ready, run the client from a second terminal:
+
+```bash
+cd /path/to/ZK-LLM-Turbo
+python -m client.client --prompt "The capital of France is"
 ```
+
+**CLI options:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--prompt` | *(interactive)* | Input text for inference. If omitted, the client prompts you interactively. |
+| `--num-tokens` | `5` | Number of tokens to generate |
+| `--num-encrypted-layers` | `1` | How many initial layers to process via encrypted server inference |
+| `--logs` | off | Enable verbose JSON logging output (silent by default) |
+
+**Examples:**
+
+```bash
+# Interactive mode — the client will ask for your prompt
+python -m client.client
+
+# Specify everything via CLI
+python -m client.client --prompt "Once upon a time" --num-tokens 10 --num-encrypted-layers 2
+
+# Enable verbose logging for debugging
+python -m client.client --prompt "Hello world" --logs
+```
+
+The client will:
+
+1. Load the TinyLlama tokenizer and model
+2. Create a CKKS encryption context and send the **public** context to the server
+3. Run split inference — encrypted layers on the server (4 round-trips each) + plaintext layers locally
+4. Print per-token progress with timing, then the full generated text
+
+KV caching is used automatically: the first token processes the full prompt, then each subsequent token only processes the single new token through all layers. This significantly reduces inference time for multi-token generation.
+
+### Optional: Expose Server via HTTPS
+
+```bash
 ngrok http 8000
 ```
 
-Update client’s `endpoints.yaml` to match HTTPS URL.
+Then update `client/config/endpoints.yaml` with the ngrok HTTPS URL.
 
 ---
 
 ## Running Tests
 
+```bash
+pytest -q              # all quick tests
+pytest -m slow         # slow tests (downloads model)
+pytest -v              # verbose output
 ```
-pytest -q
-```
-
-All public tests run offline.
 
 ---
 
@@ -175,15 +207,6 @@ Structured logs include:
 * payload size
 * status codes
 * errors
-
----
-
-## Phase 3 Preview
-
-* Encrypted linear layer evaluation
-* Galois rotations for attention
-* Zero-knowledge validity proofs
-* GPU-friendly CKKS
 
 ---
 

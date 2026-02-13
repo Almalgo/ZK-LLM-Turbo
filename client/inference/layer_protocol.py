@@ -16,6 +16,9 @@ Round 4: FFN Down Projection
   Client: decrypt → SiLU(gate)*up → encrypt (split input)
   Server: Enc(down) = sum(Enc(part_i) @ W_down_i)
   Client: decrypt → residual → next layer input
+
+All tokens in a step are batched into a single HTTP request per round.
+KV cache is maintained across generation steps for incremental inference.
 """
 
 import base64
@@ -26,8 +29,8 @@ from common.logging_utils import get_logger
 from client.inference.nonlinear_ops import (
     rms_norm,
     silu,
-    compute_attention,
-    apply_rotary_embeddings,
+    compute_attention_cached,
+    apply_rotary_embeddings_at_positions,
 )
 
 logger = get_logger("client.protocol")
@@ -51,6 +54,7 @@ class EncryptedLayerProtocol:
         self.layer_url = server_url + layer_endpoint
         self.auth_token = auth_token
         self.config = model_config
+        self._kv_cache = {}  # layer_idx -> {"k": ndarray, "v": ndarray}
 
     def _encrypt_vector(self, vec: np.ndarray) -> ts.CKKSVector:
         return ts.ckks_vector(self.context, vec.tolist())
@@ -92,7 +96,7 @@ class EncryptedLayerProtocol:
                 "Authorization": f"Bearer {self.auth_token}",
                 "Content-Type": "application/json",
             },
-            timeout=120,
+            timeout=300,
         )
         response.raise_for_status()
         data = response.json()
@@ -111,10 +115,15 @@ class EncryptedLayerProtocol:
         input_layernorm_weight: np.ndarray,
         post_attn_layernorm_weight: np.ndarray,
         eps: float,
+        position_offset: int = 0,
     ) -> np.ndarray:
         """Process one decoder layer through 4 encrypted round-trips.
 
+        All tokens are batched into single HTTP requests per round.
+        KV cache is maintained across calls for incremental generation.
+
         hidden_states: (seq_len, hidden_dim) in plaintext
+        position_offset: starting position index for RoPE
         Returns: (seq_len, hidden_dim) updated hidden states
         """
         seq_len = hidden_states.shape[0]
@@ -124,48 +133,58 @@ class EncryptedLayerProtocol:
         head_dim = hidden_dim // num_heads
         intermediate_size = self.config.intermediate_size  # 5632
 
-        # === Round 1: Q/K/V Projections ===
-        # Client: RMSNorm, encrypt per-token, send
+        # === Round 1: Q/K/V Projections (batched) ===
         residual = hidden_states.copy()
         normed = rms_norm(hidden_states, input_layernorm_weight, eps)
+
+        enc_normed = [self._encrypt_vector(normed[t]) for t in range(seq_len)]
+        results = self._send_request(layer_idx, "qkv", enc_normed)
+        # Server returns [q0, k0, v0, q1, k1, v1, ...] = 3 per token
 
         all_q = np.zeros((seq_len, hidden_dim), dtype=np.float32)
         all_k = np.zeros((seq_len, num_kv_heads * head_dim), dtype=np.float32)
         all_v = np.zeros((seq_len, num_kv_heads * head_dim), dtype=np.float32)
-
         for t in range(seq_len):
-            enc_normed = self._encrypt_vector(normed[t])
-            results = self._send_request(layer_idx, "qkv", [enc_normed])
-            # Server returns [enc_q, enc_k, enc_v]
-            all_q[t] = self._decrypt_vector(results[0], hidden_dim)
-            all_k[t] = self._decrypt_vector(results[1], num_kv_heads * head_dim)
-            all_v[t] = self._decrypt_vector(results[2], num_kv_heads * head_dim)
+            all_q[t] = self._decrypt_vector(results[t * 3], hidden_dim)
+            all_k[t] = self._decrypt_vector(results[t * 3 + 1], num_kv_heads * head_dim)
+            all_v[t] = self._decrypt_vector(results[t * 3 + 2], num_kv_heads * head_dim)
 
-        # === Client: RoPE + Attention (non-linear) ===
-        all_q, all_k = apply_rotary_embeddings(
-            all_q, all_k, seq_len,
+        # === Client: RoPE + Attention ===
+        positions = np.arange(position_offset, position_offset + seq_len)
+        all_q, all_k = apply_rotary_embeddings_at_positions(
+            all_q, all_k, positions,
             head_dim=head_dim, num_heads=num_heads, num_kv_heads=num_kv_heads,
         )
-        attn_output = compute_attention(
-            all_q, all_k, all_v,
+
+        # Update KV cache
+        cache = self._kv_cache.get(layer_idx)
+        if cache is not None:
+            full_k = np.concatenate([cache["k"], all_k], axis=0)
+            full_v = np.concatenate([cache["v"], all_v], axis=0)
+        else:
+            full_k = all_k
+            full_v = all_v
+        self._kv_cache[layer_idx] = {"k": full_k, "v": full_v}
+
+        attn_output = compute_attention_cached(
+            all_q, full_k, full_v,
             num_heads=num_heads, num_kv_heads=num_kv_heads, head_dim=head_dim,
         )
 
-        # === Round 2: O Projection ===
+        # === Round 2: O Projection (batched) ===
+        enc_attn = [self._encrypt_vector(attn_output[t]) for t in range(seq_len)]
+        results = self._send_request(layer_idx, "o_proj", enc_attn)
+
         all_o = np.zeros((seq_len, hidden_dim), dtype=np.float32)
         for t in range(seq_len):
-            enc_attn = self._encrypt_vector(attn_output[t])
-            results = self._send_request(layer_idx, "o_proj", [enc_attn])
-            all_o[t] = self._decrypt_vector(results[0], hidden_dim)
+            all_o[t] = self._decrypt_vector(results[t], hidden_dim)
 
-        # Client: residual connection
         hidden_states = residual + all_o
 
-        # === Round 3: FFN Gate + Up ===
+        # === Round 3: FFN Gate + Up (batched) ===
         residual = hidden_states.copy()
         normed = rms_norm(hidden_states, post_attn_layernorm_weight, eps)
 
-        # Determine split sizes for intermediate_size
         chunk_sizes = []
         remaining = intermediate_size
         while remaining > 0:
@@ -174,38 +193,36 @@ class EncryptedLayerProtocol:
             remaining -= chunk
         num_chunks = len(chunk_sizes)
 
+        enc_normed = [self._encrypt_vector(normed[t]) for t in range(seq_len)]
+        results = self._send_request(layer_idx, "ffn_gate_up", enc_normed)
+        # Server returns per-token: [gate_c0, gate_c1, up_c0, up_c1]
+        results_per_token = num_chunks * 2
+
         all_gate_chunks = [np.zeros((seq_len, cs), dtype=np.float32) for cs in chunk_sizes]
         all_up_chunks = [np.zeros((seq_len, cs), dtype=np.float32) for cs in chunk_sizes]
-
         for t in range(seq_len):
-            enc_normed = self._encrypt_vector(normed[t])
-            results = self._send_request(layer_idx, "ffn_gate_up", [enc_normed])
-            # Server returns: [gate_part0, gate_part1, ..., up_part0, up_part1, ...]
+            base_idx = t * results_per_token
             for i in range(num_chunks):
-                all_gate_chunks[i][t] = self._decrypt_vector(results[i], chunk_sizes[i])
-                all_up_chunks[i][t] = self._decrypt_vector(results[num_chunks + i], chunk_sizes[i])
+                all_gate_chunks[i][t] = self._decrypt_vector(results[base_idx + i], chunk_sizes[i])
+                all_up_chunks[i][t] = self._decrypt_vector(results[base_idx + num_chunks + i], chunk_sizes[i])
 
-        # === Client: SiLU(gate) * up ===
-        # Concatenate, apply SiLU, split back for encrypted down projection
-        all_gate = np.concatenate(all_gate_chunks, axis=-1)  # (seq_len, intermediate_size)
+        all_gate = np.concatenate(all_gate_chunks, axis=-1)
         all_up = np.concatenate(all_up_chunks, axis=-1)
         ffn_hidden = silu(all_gate) * all_up
 
-        # === Round 4: FFN Down ===
-        all_down = np.zeros((seq_len, hidden_dim), dtype=np.float32)
+        # === Round 4: FFN Down (batched) ===
+        enc_all = []
         for t in range(seq_len):
-            # Split ffn_hidden into chunks matching SLOT_COUNT
-            enc_chunks = []
             offset = 0
             for cs in chunk_sizes:
-                chunk = ffn_hidden[t, offset : offset + cs]
-                enc_chunks.append(self._encrypt_vector(chunk))
+                chunk_data = ffn_hidden[t, offset : offset + cs]
+                enc_all.append(self._encrypt_vector(chunk_data))
                 offset += cs
-            results = self._send_request(
-                layer_idx, "ffn_down", enc_chunks, chunk_sizes=chunk_sizes
-            )
-            all_down[t] = self._decrypt_vector(results[0], hidden_dim)
+        results = self._send_request(layer_idx, "ffn_down", enc_all, chunk_sizes=chunk_sizes)
 
-        # Client: residual connection
+        all_down = np.zeros((seq_len, hidden_dim), dtype=np.float32)
+        for t in range(seq_len):
+            all_down[t] = self._decrypt_vector(results[t], hidden_dim)
+
         hidden_states = residual + all_down
         return hidden_states

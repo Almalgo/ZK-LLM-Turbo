@@ -74,30 +74,37 @@ async def process_layer(req: LayerRequest):
         )
 
         if req.operation == "qkv":
-            # Input: 1 encrypted normed hidden state
-            qkv = compute_qkv_projections(enc_vectors[0], weights)
-            result_vectors = [qkv["q"], qkv["k"], qkv["v"]]
+            # Input: N encrypted normed hidden states (batched)
+            result_vectors = []
+            for enc_v in enc_vectors:
+                qkv = compute_qkv_projections(enc_v, weights)
+                result_vectors.extend([qkv["q"], qkv["k"], qkv["v"]])
 
         elif req.operation == "o_proj":
-            # Input: 1 encrypted attention output
-            o_out = compute_o_projection(enc_vectors[0], weights)
-            result_vectors = [o_out]
+            # Input: N encrypted attention outputs (batched)
+            result_vectors = [compute_o_projection(enc_v, weights) for enc_v in enc_vectors]
 
         elif req.operation == "ffn_gate_up":
-            # Input: 1 encrypted normed hidden state
-            gu = compute_ffn_gate_up(enc_vectors[0], weights)
-            # Return gate parts then up parts
-            result_vectors = gu["gate_parts"] + gu["up_parts"]
+            # Input: N encrypted normed hidden states (batched)
+            result_vectors = []
+            for enc_v in enc_vectors:
+                gu = compute_ffn_gate_up(enc_v, weights)
+                result_vectors.extend(gu["gate_parts"] + gu["up_parts"])
 
         elif req.operation == "ffn_down":
-            # Input: N encrypted chunks of SiLU(gate)*up
+            # Input: N*num_chunks encrypted chunks (batched)
             if req.chunk_sizes is None:
                 raise HTTPException(
                     status_code=400,
                     detail="ffn_down requires chunk_sizes",
                 )
-            down = compute_ffn_down(enc_vectors, weights, req.chunk_sizes)
-            result_vectors = [down]
+            num_chunks = len(req.chunk_sizes)
+            batch_size = len(enc_vectors) // num_chunks
+            result_vectors = []
+            for i in range(batch_size):
+                token_chunks = enc_vectors[i * num_chunks : (i + 1) * num_chunks]
+                down = compute_ffn_down(token_chunks, weights, req.chunk_sizes)
+                result_vectors.append(down)
 
         else:
             raise HTTPException(
