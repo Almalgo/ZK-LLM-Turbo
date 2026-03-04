@@ -25,6 +25,7 @@ import base64
 import numpy as np
 import requests
 import tenseal as ts
+from typing import Optional, List
 from common.logging_utils import get_logger
 from client.inference.nonlinear_ops import (
     rms_norm,
@@ -77,7 +78,7 @@ class EncryptedLayerProtocol:
     def _send_request(
         self, layer_idx: int, operation: str,
         enc_vectors: list[ts.CKKSVector],
-        chunk_sizes: list[int] | None = None,
+        chunk_sizes: Optional[List[int]] = None,
     ) -> list[ts.CKKSVector]:
         """Send encrypted vectors to server, get encrypted results back."""
         payload = {

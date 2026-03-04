@@ -26,6 +26,24 @@ This repository contains:
 
 ---
 
+## Quick Demo
+
+1. Watch the demo video: `TODO(resubmission): add unlisted YouTube link`
+2. Run on Google Colab: `TODO(resubmission): add Colab link`
+3. Local one-command roundtrip:
+
+```bash
+bash scripts/test_roundtrip.sh
+```
+
+4. Docker reproducible demo:
+
+```bash
+bash scripts/run_demo.sh
+```
+
+---
+
 ## Deliverables
 
 ### Tokenization
@@ -96,7 +114,7 @@ A notebook demonstrating:
 * Payload building
 * Simulated server handling
 
-File: `notebooks/phase2_hybrid_demo.ipynb`
+File: `notebooks/milestone4_demo.ipynb`
 
 Runs fully offline.
 
@@ -127,7 +145,7 @@ Running split inference requires **two terminals** — one for the server and on
 
 ```bash
 cd /path/to/ZK-LLM-Turbo
-uvicorn server.server:app --reload --host 0.0.0.0 --port 8000
+bash scripts/run_server.sh
 ```
 
 The server loads TinyLlama 1.1B at startup and exposes two endpoints:
@@ -143,7 +161,7 @@ Once the server is ready, run the client from a second terminal:
 
 ```bash
 cd /path/to/ZK-LLM-Turbo
-python -m client.client --prompt "The capital of France is"
+bash scripts/run_client.sh
 ```
 
 **CLI options:**
@@ -197,6 +215,7 @@ Then update `client/config/endpoints.yaml` with the ngrok HTTPS URL.
 pytest -q              # all quick tests
 pytest -m slow         # slow tests (downloads model)
 pytest -v              # verbose output
+pytest -m slow server/tests/test_integration_e2e.py -v  # real server + client roundtrip
 ```
 
 ---

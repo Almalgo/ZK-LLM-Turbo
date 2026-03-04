@@ -12,6 +12,7 @@ import sys
 import argparse
 import logging
 import time
+import os
 from pathlib import Path
 import base64
 import uuid
@@ -38,6 +39,9 @@ def load_config():
     """Load client and server configuration."""
     client_cfg = yaml.safe_load(Path("client/config/client_config.yaml").read_text())
     server_cfg = yaml.safe_load(Path("client/config/endpoints.yaml").read_text())["server"]
+    override_base_url = os.getenv("ZKLLM_SERVER_BASE_URL")
+    if override_base_url:
+        server_cfg["base_url"] = override_base_url
     return client_cfg, server_cfg
 
 

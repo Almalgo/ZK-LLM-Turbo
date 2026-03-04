@@ -421,3 +421,54 @@ Key achievements:
 - Interactive notebook demonstrates all building blocks with timing and accuracy analysis
 
 This milestone validates the feasibility of encrypted transformer inference and establishes the foundation for zero-knowledge correctness proofs in future milestones.
+
+# 14. Resubmission Evidence Pack (2026-03-04)
+
+The following artifacts were added to close the reproducibility and evidence gap identified by review:
+
+## 14.1 End-to-End Roundtrip Script
+
+- Added `scripts/test_roundtrip.sh`:
+  - Starts the FastAPI server
+  - Waits for readiness (`/docs`)
+  - Runs client generation with stats
+  - Cleans up server process automatically
+
+## 14.2 Real Integration Test
+
+- Added `server/tests/test_integration_e2e.py` marked as `@pytest.mark.slow`:
+  - Boots `uvicorn server.server:app`
+  - Waits for service readiness
+  - Runs `python -m client.client --prompt "The capital of France is" --num-tokens 2 --num-encrypted-layers 1 --stats`
+  - Asserts token generation output and timing table are present
+
+Run command:
+
+```bash
+pytest -m slow server/tests/test_integration_e2e.py -v
+```
+
+## 14.3 Docker Reproducible Demo
+
+- Added `Dockerfile`, `docker-compose.yml`, and `scripts/run_demo.sh`
+- Demo command:
+
+```bash
+bash scripts/run_demo.sh
+```
+
+This starts the server container, waits for readiness, and executes a client demo container against it.
+
+## 14.4 Quick Demo Entry Points
+
+- Added `README.md` "Quick Demo" section with:
+  - Demo video placeholder link
+  - Colab placeholder link
+  - Local roundtrip command
+  - Docker demo command
+
+## 14.5 Pending External Evidence (to be filled before final resubmission)
+
+- Demo video URL (unlisted YouTube + downloadable MP4)
+- Colab notebook URL
+- Public demo proof (calendar/forum/Discord links, session recording, attendee confirmations)

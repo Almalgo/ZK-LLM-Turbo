@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  server:
+    build: .
+    container_name: zk-llm-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+
+  demo-client:
+    build: .
+    container_name: zk-llm-demo-client
+    depends_on:
+      - server
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    environment:
+      - ZKLLM_SERVER_BASE_URL=http://server:8000
+    command: >
+      sh -c "python -m client.client
+      --prompt 'The capital of France is'
+      --num-tokens 5
+      --num-encrypted-layers 1
+      --stats"
+    profiles:
+      - demo
+
+volumes:
+  hf_cache:

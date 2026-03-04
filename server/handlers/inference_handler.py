@@ -4,6 +4,7 @@ import base64
 import tenseal as ts
 import time
 import uuid
+from typing import Optional, List
 from common.logging_utils import get_logger
 from server.handlers.session_handler import get_session
 from server.model.weight_manager import get_layer_weights
@@ -23,7 +24,7 @@ class LayerRequest(BaseModel):
     layer_idx: int
     operation: str  # "qkv", "o_proj", "ffn_gate_up", "ffn_down"
     encrypted_vectors_b64: list[str]
-    chunk_sizes: list[int] | None = None  # for split-input operations
+    chunk_sizes: Optional[List[int]] = None  # for split-input operations
 
 
 class LayerResponse(BaseModel):
