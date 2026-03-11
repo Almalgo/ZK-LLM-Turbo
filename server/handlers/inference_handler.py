@@ -6,7 +6,7 @@ import time
 import uuid
 from common.logging_utils import get_logger
 from server.handlers.session_handler import get_session
-from server.model.weight_manager import get_layer_weights
+from server.model.weight_manager import get_layer_weights, get_layer_weight_lists
 from server.inference.he_ops import (
     compute_qkv_projections,
     compute_o_projection,
@@ -63,6 +63,7 @@ async def process_layer(req: LayerRequest):
     try:
         context = get_session(req.session_id)
         weights = get_layer_weights(req.layer_idx)
+        weight_lists = get_layer_weight_lists(req.layer_idx)
         enc_vectors = _deserialize_vectors(context, req.encrypted_vectors_b64)
 
         logger.info(
@@ -77,18 +78,18 @@ async def process_layer(req: LayerRequest):
             # Input: N encrypted normed hidden states (batched)
             result_vectors = []
             for enc_v in enc_vectors:
-                qkv = compute_qkv_projections(enc_v, weights)
+                qkv = compute_qkv_projections(enc_v, weights, weight_lists=weight_lists)
                 result_vectors.extend([qkv["q"], qkv["k"], qkv["v"]])
 
         elif req.operation == "o_proj":
             # Input: N encrypted attention outputs (batched)
-            result_vectors = [compute_o_projection(enc_v, weights) for enc_v in enc_vectors]
+            result_vectors = [compute_o_projection(enc_v, weights, weight_lists=weight_lists) for enc_v in enc_vectors]
 
         elif req.operation == "ffn_gate_up":
             # Input: N encrypted normed hidden states (batched)
             result_vectors = []
             for enc_v in enc_vectors:
-                gu = compute_ffn_gate_up(enc_v, weights)
+                gu = compute_ffn_gate_up(enc_v, weights, weight_lists=weight_lists)
                 result_vectors.extend(gu["gate_parts"] + gu["up_parts"])
 
         elif req.operation == "ffn_down":
@@ -103,7 +104,7 @@ async def process_layer(req: LayerRequest):
             result_vectors = []
             for i in range(batch_size):
                 token_chunks = enc_vectors[i * num_chunks : (i + 1) * num_chunks]
-                down = compute_ffn_down(token_chunks, weights, req.chunk_sizes)
+                down = compute_ffn_down(token_chunks, weights, req.chunk_sizes, weight_lists=weight_lists)
                 result_vectors.append(down)
 
         else:

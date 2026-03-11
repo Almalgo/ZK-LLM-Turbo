@@ -14,23 +14,29 @@ logger = get_logger("server.he_ops")
 SLOT_COUNT = 4096  # poly_modulus_degree // 2
 
 
-def he_matmul(enc_vector: ts.CKKSVector, weight_matrix: np.ndarray) -> ts.CKKSVector:
+def he_matmul(
+    enc_vector: ts.CKKSVector,
+    weight_matrix: np.ndarray = None,
+    precomputed_list: list | None = None,
+) -> ts.CKKSVector:
     """Multiply encrypted vector by plaintext weight matrix.
 
     enc_vector: encrypted vector of dim D_in
     weight_matrix: plaintext (D_in, D_out) where D_out <= SLOT_COUNT
+    precomputed_list: pre-converted .tolist() result (avoids repeated conversion)
 
     Returns encrypted vector of dim D_out.
-    Uses TenSEAL's built-in matrix-vector multiplication (enc.mm).
     """
-    # TenSEAL mm expects the weight as a list of lists
-    # enc_vector.mm(matrix) computes: enc_vector @ matrix
+    if precomputed_list is not None:
+        return enc_vector.mm(precomputed_list)
     weight_list = weight_matrix.tolist()
     return enc_vector.mm(weight_list)
 
 
 def he_matmul_split_output(
-    enc_vector: ts.CKKSVector, weight_matrix: np.ndarray
+    enc_vector: ts.CKKSVector,
+    weight_matrix: np.ndarray,
+    precomputed_chunks: list | None = None,
 ) -> list[ts.CKKSVector]:
     """Matrix multiply when output dim > SLOT_COUNT.
 
@@ -39,6 +45,10 @@ def he_matmul_split_output(
 
     Returns list of encrypted vectors, one per chunk.
     """
+    if precomputed_chunks is not None:
+        # Pre-split chunk lists provided
+        return [enc_vector.mm(chunk) for chunk in precomputed_chunks]
+
     d_in, d_out = weight_matrix.shape
     if d_out <= SLOT_COUNT:
         return [he_matmul(enc_vector, weight_matrix)]
@@ -82,37 +92,53 @@ def he_matmul_split_input(
 
 
 def compute_qkv_projections(
-    enc_vector: ts.CKKSVector, weights: dict
+    enc_vector: ts.CKKSVector, weights: dict, weight_lists: dict | None = None,
 ) -> dict[str, ts.CKKSVector]:
     """Compute Q, K, V projections homomorphically.
 
     enc_vector: encrypted normed hidden state (dim 2048)
     weights: dict with q_proj, k_proj, v_proj matrices
+    weight_lists: optional pre-converted .tolist() dict for avoiding repeated conversion
 
     Returns dict with encrypted Q (2048), K (256), V (256).
     """
-    enc_q = he_matmul(enc_vector, weights["q_proj"])
-    enc_k = he_matmul(enc_vector, weights["k_proj"])
-    enc_v = he_matmul(enc_vector, weights["v_proj"])
+    wl = weight_lists or {}
+    enc_q = he_matmul(enc_vector, weights["q_proj"],
+                      precomputed_list=wl.get("q_proj"))
+    enc_k = he_matmul(enc_vector, weights["k_proj"],
+                      precomputed_list=wl.get("k_proj"))
+    enc_v = he_matmul(enc_vector, weights["v_proj"],
+                      precomputed_list=wl.get("v_proj"))
     return {"q": enc_q, "k": enc_k, "v": enc_v}
 
 
 def compute_o_projection(
-    enc_attn: ts.CKKSVector, weights: dict
+    enc_attn: ts.CKKSVector, weights: dict, weight_lists: dict | None = None,
 ) -> ts.CKKSVector:
     """Compute output projection: Enc(attn) @ W_o."""
-    return he_matmul(enc_attn, weights["o_proj"])
+    wl = weight_lists or {}
+    return he_matmul(enc_attn, weights["o_proj"],
+                     precomputed_list=wl.get("o_proj"))
 
 
 def compute_ffn_gate_up(
-    enc_vector: ts.CKKSVector, weights: dict
+    enc_vector: ts.CKKSVector, weights: dict, weight_lists: dict | None = None,
 ) -> dict[str, list[ts.CKKSVector]]:
     """Compute gate and up projections (2048 → 5632, split output).
 
     Returns dict with lists of encrypted chunks for gate and up.
     """
-    gate_parts = he_matmul_split_output(enc_vector, weights["gate_proj"])
-    up_parts = he_matmul_split_output(enc_vector, weights["up_proj"])
+    wl = weight_lists or {}
+    gate_chunks = wl.get("gate_proj")
+    up_chunks = wl.get("up_proj")
+
+    # Check if pre-split chunks (list of list-of-lists) are available
+    if gate_chunks is not None and isinstance(gate_chunks, list) and len(gate_chunks) > 0 and isinstance(gate_chunks[0], list) and len(gate_chunks[0]) > 0 and isinstance(gate_chunks[0][0], list):
+        gate_parts = he_matmul_split_output(enc_vector, None, precomputed_chunks=gate_chunks)
+        up_parts = he_matmul_split_output(enc_vector, None, precomputed_chunks=up_chunks)
+    else:
+        gate_parts = he_matmul_split_output(enc_vector, weights["gate_proj"])
+        up_parts = he_matmul_split_output(enc_vector, weights["up_proj"])
     return {"gate_parts": gate_parts, "up_parts": up_parts}
 
 
@@ -120,6 +146,7 @@ def compute_ffn_down(
     enc_vectors: list[ts.CKKSVector],
     weights: dict,
     chunk_sizes: list[int],
+    weight_lists: dict | None = None,
 ) -> ts.CKKSVector:
     """Compute down projection (5632 → 2048, split input)."""
     return he_matmul_split_input(enc_vectors, weights["down_proj"], chunk_sizes)

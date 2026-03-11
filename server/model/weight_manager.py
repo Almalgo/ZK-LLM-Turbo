@@ -7,6 +7,7 @@ logger = get_logger("server.weights")
 
 _model = None
 _layer_weight_cache: dict[int, dict] = {}
+_layer_weight_lists: dict[int, dict] = {}  # Pre-converted .tolist() cache
 MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 
@@ -59,3 +60,36 @@ def get_layer_weights(layer_idx: int) -> dict[str, np.ndarray]:
     _layer_weight_cache[layer_idx] = weights
     logger.info("Layer weights cached", extra={"extra": {"layer_idx": layer_idx}})
     return weights
+
+
+SLOT_COUNT = 4096  # poly_modulus_degree // 2
+
+
+def get_layer_weight_lists(layer_idx: int) -> dict[str, list]:
+    """Return weight matrices pre-converted to Python lists for HE matmul.
+
+    Caches the .tolist() conversion so it's done once at first access
+    rather than on every HE matmul call. For matrices that exceed SLOT_COUNT
+    in output dim, also pre-splits and converts the column chunks.
+    """
+    if layer_idx in _layer_weight_lists:
+        return _layer_weight_lists[layer_idx]
+
+    weights = get_layer_weights(layer_idx)
+    weight_lists = {}
+    for name, w in weights.items():
+        if w.ndim == 2:
+            d_in, d_out = w.shape
+            if d_out <= SLOT_COUNT:
+                weight_lists[name] = w.tolist()
+            else:
+                # Pre-split and convert chunks for split-output matmul
+                chunks = []
+                for start in range(0, d_out, SLOT_COUNT):
+                    end = min(start + SLOT_COUNT, d_out)
+                    chunks.append(w[:, start:end].tolist())
+                weight_lists[name] = chunks  # list of chunk lists
+
+    _layer_weight_lists[layer_idx] = weight_lists
+    logger.info("Layer weight lists cached", extra={"extra": {"layer_idx": layer_idx}})
+    return weight_lists
