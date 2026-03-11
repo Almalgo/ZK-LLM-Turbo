@@ -109,7 +109,7 @@ async def process_layer(req: LayerRequest):
             result_vectors = []
             for i in range(batch_size):
                 token_chunks = enc_vectors[i * num_chunks : (i + 1) * num_chunks]
-                down = compute_ffn_down(token_chunks, weights, req.chunk_sizes, weight_lists=weight_lists)
+                down = compute_ffn_down(token_chunks, weights, req.chunk_sizes)
                 result_vectors.append(down)
 
         else:
@@ -159,12 +159,26 @@ async def process_layer_binary(request: Request):
         encrypted_vectors_raw = req_data["encrypted_vectors"]
         chunk_sizes = req_data.get("chunk_sizes")
 
+        # --- Input validation ---
+        if not isinstance(layer_idx, int) or layer_idx < 0:
+            raise HTTPException(status_code=400, detail="Invalid layer_idx: must be a non-negative integer")
+        if not isinstance(session_id, str) or len(session_id) > 256:
+            raise HTTPException(status_code=400, detail="Invalid session_id")
+        if not isinstance(encrypted_vectors_raw, list):
+            raise HTTPException(status_code=400, detail="encrypted_vectors must be a list")
+        if len(encrypted_vectors_raw) > 100:
+            raise HTTPException(status_code=400, detail="Too many vectors (max 100)")
+
         context = get_session(session_id)
         weights = get_layer_weights(layer_idx)
         weight_lists = get_layer_weight_lists(layer_idx)
 
-        # Decompress and deserialize vectors from raw bytes
-        enc_vectors = [ts.ckks_vector_from(context, _zstd_decompressor.decompress(raw)) for raw in encrypted_vectors_raw]
+        # Decompress and deserialize vectors from raw bytes (with size cap to prevent zip bombs)
+        MAX_DECOMPRESSED_SIZE = 50_000_000  # 50MB per vector
+        enc_vectors = [
+            ts.ckks_vector_from(context, _zstd_decompressor.decompress(raw, max_output_size=MAX_DECOMPRESSED_SIZE))
+            for raw in encrypted_vectors_raw
+        ]
 
         logger.info(
             "Processing layer op (binary)",
@@ -197,7 +211,7 @@ async def process_layer_binary(request: Request):
             result_vectors = []
             for i in range(batch_size):
                 token_chunks = enc_vectors[i * num_chunks : (i + 1) * num_chunks]
-                down = compute_ffn_down(token_chunks, weights, chunk_sizes, weight_lists=weight_lists)
+                down = compute_ffn_down(token_chunks, weights, chunk_sizes)
                 result_vectors.append(down)
         else:
             raise HTTPException(status_code=400, detail=f"Unknown operation: {operation}")

@@ -136,13 +136,15 @@ class EncryptedLayerProtocol:
             )
             response.raise_for_status()
         except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError):
-            # Fallback to JSON+base64
+            # Fallback to JSON+base64, reusing already-serialized raw bytes
             used_binary = False
+            vectors_b64 = [base64.b64encode(raw).decode("utf-8") for raw in
+                           [_zstd_decompressor.decompress(s) for s in serialized]]
             fallback_payload = {
                 "session_id": self.session_id,
                 "layer_idx": layer_idx,
                 "operation": operation,
-                "encrypted_vectors_b64": self._serialize_vectors_b64(enc_vectors),
+                "encrypted_vectors_b64": vectors_b64,
             }
             if chunk_sizes is not None:
                 fallback_payload["chunk_sizes"] = chunk_sizes
