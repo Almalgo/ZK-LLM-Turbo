@@ -12,11 +12,25 @@ logger = get_logger("server")
 load_dotenv("server/config/credentials.env")
 
 
+def _check_hexl():
+    """Log whether Intel HEXL acceleration is likely available."""
+    try:
+        with open("/proc/cpuinfo") as f:
+            cpuinfo = f.read()
+        if "avx512" in cpuinfo.lower():
+            logger.info("AVX512 detected — Intel HEXL acceleration may be active if SEAL was compiled with HEXL support.")
+        else:
+            logger.warning("AVX512 not detected — Intel HEXL acceleration unavailable. See docs/intel-hexl-integration.md")
+    except Exception:
+        logger.warning("Could not check CPU features for HEXL support.")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load model at startup, cleanup on shutdown."""
     logger.info("Server starting — loading model...")
     load_model()
+    _check_hexl()
     logger.info("Model loaded, server ready.")
     yield
     logger.info("Server shutting down.")
