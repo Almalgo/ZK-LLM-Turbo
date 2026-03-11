@@ -56,6 +56,13 @@ class EncryptedLayerProtocol:
         self.config = model_config
         self._kv_cache = {}  # layer_idx -> {"k": ndarray, "v": ndarray}
 
+        # Reuse HTTP connection across all requests
+        self._http_session = requests.Session()
+        self._http_session.headers.update({
+            "Authorization": f"Bearer {self.auth_token}",
+            "Content-Type": "application/json",
+        })
+
     def _encrypt_vector(self, vec: np.ndarray) -> ts.CKKSVector:
         return ts.ckks_vector(self.context, vec.tolist())
 
@@ -89,13 +96,9 @@ class EncryptedLayerProtocol:
         if chunk_sizes is not None:
             payload["chunk_sizes"] = chunk_sizes
 
-        response = requests.post(
+        response = self._http_session.post(
             self.layer_url,
             json=payload,
-            headers={
-                "Authorization": f"Bearer {self.auth_token}",
-                "Content-Type": "application/json",
-            },
             timeout=300,
         )
         response.raise_for_status()

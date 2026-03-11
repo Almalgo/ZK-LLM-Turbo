@@ -33,6 +33,9 @@ from client.inference.nonlinear_ops import rms_norm
 
 logger = get_logger("client")
 
+# Module-level reusable HTTP session
+_http_session = requests.Session()
+
 
 def load_config():
     """Load client and server configuration."""
@@ -47,13 +50,13 @@ def setup_session(context, server_cfg):
     public_b64 = base64.b64encode(public_bytes).decode("utf-8")
 
     url = server_cfg["base_url"] + server_cfg["session_endpoint"]
-    response = requests.post(
+    _http_session.headers.update({
+        "Authorization": f"Bearer {server_cfg['auth_token']}",
+        "Content-Type": "application/json",
+    })
+    response = _http_session.post(
         url,
         json={"public_context_b64": public_b64},
-        headers={
-            "Authorization": f"Bearer {server_cfg['auth_token']}",
-            "Content-Type": "application/json",
-        },
         timeout=30,
     )
     response.raise_for_status()
