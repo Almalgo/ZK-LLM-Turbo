@@ -5,6 +5,7 @@ Hidden dim (2048) fits in one ciphertext.
 FFN intermediate dim (5632) does NOT fit → must split across 2 ciphertexts.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import tenseal as ts
 from common.logging_utils import get_logger
@@ -12,6 +13,9 @@ from common.logging_utils import get_logger
 logger = get_logger("server.he_ops")
 
 SLOT_COUNT = 4096  # poly_modulus_degree // 2
+
+# Reuse thread pool across calls (SEAL releases GIL for C++ operations)
+_he_thread_pool = ThreadPoolExecutor(max_workers=4)
 
 
 def he_matmul(
@@ -103,13 +107,16 @@ def compute_qkv_projections(
     Returns dict with encrypted Q (2048), K (256), V (256).
     """
     wl = weight_lists or {}
-    enc_q = he_matmul(enc_vector, weights["q_proj"],
-                      precomputed_list=wl.get("q_proj"))
-    enc_k = he_matmul(enc_vector, weights["k_proj"],
-                      precomputed_list=wl.get("k_proj"))
-    enc_v = he_matmul(enc_vector, weights["v_proj"],
-                      precomputed_list=wl.get("v_proj"))
-    return {"q": enc_q, "k": enc_k, "v": enc_v}
+
+    # Submit Q, K, V matmuls in parallel (they're independent)
+    q_future = _he_thread_pool.submit(
+        he_matmul, enc_vector, weights["q_proj"], precomputed_list=wl.get("q_proj"))
+    k_future = _he_thread_pool.submit(
+        he_matmul, enc_vector, weights["k_proj"], precomputed_list=wl.get("k_proj"))
+    v_future = _he_thread_pool.submit(
+        he_matmul, enc_vector, weights["v_proj"], precomputed_list=wl.get("v_proj"))
+
+    return {"q": q_future.result(), "k": k_future.result(), "v": v_future.result()}
 
 
 def compute_o_projection(
@@ -134,11 +141,16 @@ def compute_ffn_gate_up(
 
     # Check if pre-split chunks (list of list-of-lists) are available
     if gate_chunks is not None and isinstance(gate_chunks, list) and len(gate_chunks) > 0 and isinstance(gate_chunks[0], list) and len(gate_chunks[0]) > 0 and isinstance(gate_chunks[0][0], list):
-        gate_parts = he_matmul_split_output(enc_vector, None, precomputed_chunks=gate_chunks)
-        up_parts = he_matmul_split_output(enc_vector, None, precomputed_chunks=up_chunks)
+        # Submit all chunk matmuls in parallel
+        gate_futures = [_he_thread_pool.submit(enc_vector.mm, chunk) for chunk in gate_chunks]
+        up_futures = [_he_thread_pool.submit(enc_vector.mm, chunk) for chunk in up_chunks]
+        gate_parts = [f.result() for f in gate_futures]
+        up_parts = [f.result() for f in up_futures]
     else:
-        gate_parts = he_matmul_split_output(enc_vector, weights["gate_proj"])
-        up_parts = he_matmul_split_output(enc_vector, weights["up_proj"])
+        gate_future = _he_thread_pool.submit(he_matmul_split_output, enc_vector, weights["gate_proj"])
+        up_future = _he_thread_pool.submit(he_matmul_split_output, enc_vector, weights["up_proj"])
+        gate_parts = gate_future.result()
+        up_parts = up_future.result()
     return {"gate_parts": gate_parts, "up_parts": up_parts}
 
 
