@@ -25,6 +25,7 @@ import base64
 import numpy as np
 import requests
 import msgpack
+import zstandard as zstd
 import tenseal as ts
 from common.logging_utils import get_logger
 from client.inference.nonlinear_ops import (
@@ -37,6 +38,9 @@ from client.inference.nonlinear_ops import (
 logger = get_logger("client.protocol")
 
 SLOT_COUNT = 4096  # poly_modulus_degree // 2
+
+_zstd_compressor = zstd.ZstdCompressor(level=3)
+_zstd_decompressor = zstd.ZstdDecompressor()
 
 
 class EncryptedLayerProtocol:
@@ -72,12 +76,12 @@ class EncryptedLayerProtocol:
         return np.array(dec[:expected_len], dtype=np.float32)
 
     def _serialize_vectors(self, vectors: list[ts.CKKSVector]) -> list[bytes]:
-        """Serialize encrypted vectors to raw bytes (no base64)."""
-        return [v.serialize() for v in vectors]
+        """Serialize and compress encrypted vectors with zstd."""
+        return [_zstd_compressor.compress(v.serialize()) for v in vectors]
 
-    def _deserialize_vectors(self, vectors_raw: list[bytes]) -> list[ts.CKKSVector]:
-        """Deserialize raw byte vectors."""
-        return [ts.ckks_vector_from(self.context, raw) for raw in vectors_raw]
+    def _deserialize_vectors(self, vectors_compressed: list[bytes]) -> list[ts.CKKSVector]:
+        """Decompress and deserialize encrypted vectors."""
+        return [ts.ckks_vector_from(self.context, _zstd_decompressor.decompress(raw)) for raw in vectors_compressed]
 
     def _serialize_vectors_b64(self, vectors: list[ts.CKKSVector]) -> list[str]:
         """Legacy base64 serialization for JSON fallback."""

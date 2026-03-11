@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 import base64
 import msgpack
+import zstandard as zstd
 import tenseal as ts
 import time
 import uuid
@@ -17,6 +18,9 @@ from server.inference.he_ops import (
 
 logger = get_logger("server.inference")
 router = APIRouter()
+
+_zstd_compressor = zstd.ZstdCompressor(level=3)
+_zstd_decompressor = zstd.ZstdDecompressor()
 
 
 class LayerRequest(BaseModel):
@@ -159,8 +163,8 @@ async def process_layer_binary(request: Request):
         weights = get_layer_weights(layer_idx)
         weight_lists = get_layer_weight_lists(layer_idx)
 
-        # Deserialize vectors from raw bytes (no base64)
-        enc_vectors = [ts.ckks_vector_from(context, raw) for raw in encrypted_vectors_raw]
+        # Decompress and deserialize vectors from raw bytes
+        enc_vectors = [ts.ckks_vector_from(context, _zstd_decompressor.decompress(raw)) for raw in encrypted_vectors_raw]
 
         logger.info(
             "Processing layer op (binary)",
@@ -198,8 +202,8 @@ async def process_layer_binary(request: Request):
         else:
             raise HTTPException(status_code=400, detail=f"Unknown operation: {operation}")
 
-        # Serialize results as raw bytes
-        results_raw = [v.serialize() for v in result_vectors]
+        # Serialize and compress results
+        results_raw = [_zstd_compressor.compress(v.serialize()) for v in result_vectors]
         elapsed_ms = (time.perf_counter() - start) * 1000
 
         logger.info(
