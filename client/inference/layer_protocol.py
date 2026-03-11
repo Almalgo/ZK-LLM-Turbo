@@ -22,6 +22,7 @@ KV cache is maintained across generation steps for incremental inference.
 """
 
 import base64
+import time
 import numpy as np
 import requests
 import msgpack
@@ -104,17 +105,28 @@ class EncryptedLayerProtocol:
         """Send encrypted vectors to server via msgpack binary transport.
 
         Falls back to JSON+base64 if the binary endpoint is unavailable.
+        Includes detailed timing instrumentation for performance analysis.
         """
+        # Time serialization + compression
+        t0 = time.perf_counter()
+        serialized = self._serialize_vectors(enc_vectors)
+        serialize_ms = (time.perf_counter() - t0) * 1000
+
         payload = {
             "session_id": self.session_id,
             "layer_idx": layer_idx,
             "operation": operation,
-            "encrypted_vectors": self._serialize_vectors(enc_vectors),
+            "encrypted_vectors": serialized,
         }
         if chunk_sizes is not None:
             payload["chunk_sizes"] = chunk_sizes
 
+        # Time network roundtrip (pack + send + receive)
+        t0 = time.perf_counter()
         body = msgpack.packb(payload, use_bin_type=True)
+        payload_bytes = len(body)
+        used_binary = True
+
         try:
             response = self._http_session.post(
                 self.layer_url + "/binary",
@@ -123,10 +135,9 @@ class EncryptedLayerProtocol:
                 timeout=300,
             )
             response.raise_for_status()
-            data = msgpack.unpackb(response.content, raw=False)
-            result_key = "encrypted_results"
         except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError):
             # Fallback to JSON+base64
+            used_binary = False
             fallback_payload = {
                 "session_id": self.session_id,
                 "layer_idx": layer_idx,
@@ -141,21 +152,37 @@ class EncryptedLayerProtocol:
                 timeout=300,
             )
             response.raise_for_status()
+            payload_bytes = len(response.request.body) if response.request.body else 0
+
+        roundtrip_ms = (time.perf_counter() - t0) * 1000
+
+        # Time deserialization + decompression
+        t0 = time.perf_counter()
+        if used_binary:
+            data = msgpack.unpackb(response.content, raw=False)
+            result = self._deserialize_vectors(data["encrypted_results"])
+        else:
             data = response.json()
-            result_key = "encrypted_results_b64"
+            result = self._deserialize_vectors_b64(data["encrypted_results_b64"])
+        deserialize_ms = (time.perf_counter() - t0) * 1000
+
+        server_ms = data.get("elapsed_ms", 0)
+        network_ms = max(0, roundtrip_ms - server_ms)
 
         logger.info(
             f"Round {operation} complete",
             extra={"extra": {
                 "layer": layer_idx, "op": operation,
-                "server_ms": data.get("elapsed_ms"),
+                "transport": "binary" if used_binary else "json",
+                "serialize_ms": round(serialize_ms, 1),
+                "server_ms": round(server_ms, 1),
+                "network_ms": round(network_ms, 1),
+                "deserialize_ms": round(deserialize_ms, 1),
+                "payload_kb": round(payload_bytes / 1024, 1),
+                "response_kb": round(len(response.content) / 1024, 1),
             }},
         )
-
-        if result_key == "encrypted_results":
-            return self._deserialize_vectors(data["encrypted_results"])
-        else:
-            return self._deserialize_vectors_b64(data["encrypted_results_b64"])
+        return result
 
     def process_layer(
         self, hidden_states: np.ndarray, layer_idx: int,

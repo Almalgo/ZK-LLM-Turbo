@@ -6,6 +6,7 @@ FFN intermediate dim (5632) does NOT fit → must split across 2 ciphertexts.
 """
 
 from concurrent.futures import ThreadPoolExecutor
+import time
 import numpy as np
 import tenseal as ts
 from common.logging_utils import get_logger
@@ -31,10 +32,14 @@ def he_matmul(
 
     Returns encrypted vector of dim D_out.
     """
+    t0 = time.perf_counter()
     if precomputed_list is not None:
-        return enc_vector.mm(precomputed_list)
-    weight_list = weight_matrix.tolist()
-    return enc_vector.mm(weight_list)
+        result = enc_vector.mm(precomputed_list)
+    else:
+        result = enc_vector.mm(weight_matrix.tolist())
+    elapsed = (time.perf_counter() - t0) * 1000
+    logger.debug(f"he_matmul: {elapsed:.1f}ms")
+    return result
 
 
 def he_matmul_split_output(
