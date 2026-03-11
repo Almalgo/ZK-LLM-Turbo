@@ -151,6 +151,12 @@ async def process_layer_binary(request: Request):
 
     try:
         body = await request.body()
+
+        # Defense-in-depth: reject oversized compressed payloads before decompression
+        MAX_COMPRESSED_PAYLOAD = 10_000_000  # 10 MB
+        if len(body) > MAX_COMPRESSED_PAYLOAD:
+            raise HTTPException(status_code=413, detail="Compressed payload too large")
+
         req_data = msgpack.unpackb(body, raw=False)
 
         session_id = req_data["session_id"]
