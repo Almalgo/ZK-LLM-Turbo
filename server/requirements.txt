@@ -4,5 +4,6 @@ python-dotenv
 tenseal
 pyyaml
 pydantic
+msgpack
 torch>=2.1.0
 transformers>=4.33.0

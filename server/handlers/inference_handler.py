@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 import base64
+import msgpack
 import tenseal as ts
 import time
 import uuid
@@ -135,6 +136,90 @@ async def process_layer(req: LayerRequest):
         raise
     except Exception as e:
         logger.error("Layer op failed", extra={"extra": {"cid": cid, "error": str(e)}})
+        raise HTTPException(status_code=500, detail=f"Inference error: {e}")
+
+
+@router.post("/api/layer/binary")
+async def process_layer_binary(request: Request):
+    """Binary msgpack endpoint — no base64, no JSON overhead."""
+    start = time.perf_counter()
+    cid = str(uuid.uuid4())
+
+    try:
+        body = await request.body()
+        req_data = msgpack.unpackb(body, raw=False)
+
+        session_id = req_data["session_id"]
+        layer_idx = req_data["layer_idx"]
+        operation = req_data["operation"]
+        encrypted_vectors_raw = req_data["encrypted_vectors"]
+        chunk_sizes = req_data.get("chunk_sizes")
+
+        context = get_session(session_id)
+        weights = get_layer_weights(layer_idx)
+        weight_lists = get_layer_weight_lists(layer_idx)
+
+        # Deserialize vectors from raw bytes (no base64)
+        enc_vectors = [ts.ckks_vector_from(context, raw) for raw in encrypted_vectors_raw]
+
+        logger.info(
+            "Processing layer op (binary)",
+            extra={"extra": {
+                "cid": cid, "layer": layer_idx,
+                "op": operation, "num_vectors": len(enc_vectors),
+            }},
+        )
+
+        if operation == "qkv":
+            result_vectors = []
+            for enc_v in enc_vectors:
+                qkv = compute_qkv_projections(enc_v, weights, weight_lists=weight_lists)
+                result_vectors.extend([qkv["q"], qkv["k"], qkv["v"]])
+
+        elif operation == "o_proj":
+            result_vectors = [compute_o_projection(enc_v, weights, weight_lists=weight_lists) for enc_v in enc_vectors]
+
+        elif operation == "ffn_gate_up":
+            result_vectors = []
+            for enc_v in enc_vectors:
+                gu = compute_ffn_gate_up(enc_v, weights, weight_lists=weight_lists)
+                result_vectors.extend(gu["gate_parts"] + gu["up_parts"])
+
+        elif operation == "ffn_down":
+            if chunk_sizes is None:
+                raise HTTPException(status_code=400, detail="ffn_down requires chunk_sizes")
+            num_chunks = len(chunk_sizes)
+            batch_size = len(enc_vectors) // num_chunks
+            result_vectors = []
+            for i in range(batch_size):
+                token_chunks = enc_vectors[i * num_chunks : (i + 1) * num_chunks]
+                down = compute_ffn_down(token_chunks, weights, chunk_sizes, weight_lists=weight_lists)
+                result_vectors.append(down)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown operation: {operation}")
+
+        # Serialize results as raw bytes
+        results_raw = [v.serialize() for v in result_vectors]
+        elapsed_ms = (time.perf_counter() - start) * 1000
+
+        logger.info(
+            "Layer op complete (binary)",
+            extra={"extra": {"cid": cid, "op": operation, "elapsed_ms": round(elapsed_ms, 2)}},
+        )
+
+        response_data = msgpack.packb({
+            "encrypted_results": results_raw,
+            "operation": operation,
+            "layer_idx": layer_idx,
+            "elapsed_ms": round(elapsed_ms, 2),
+        }, use_bin_type=True)
+
+        return Response(content=response_data, media_type="application/msgpack")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Layer op failed (binary)", extra={"extra": {"cid": cid, "error": str(e)}})
         raise HTTPException(status_code=500, detail=f"Inference error: {e}")
 
 

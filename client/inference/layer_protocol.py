@@ -24,6 +24,7 @@ KV cache is maintained across generation steps for incremental inference.
 import base64
 import numpy as np
 import requests
+import msgpack
 import tenseal as ts
 from common.logging_utils import get_logger
 from client.inference.nonlinear_ops import (
@@ -70,10 +71,20 @@ class EncryptedLayerProtocol:
         dec = enc_vec.decrypt()
         return np.array(dec[:expected_len], dtype=np.float32)
 
-    def _serialize_vectors(self, vectors: list[ts.CKKSVector]) -> list[str]:
+    def _serialize_vectors(self, vectors: list[ts.CKKSVector]) -> list[bytes]:
+        """Serialize encrypted vectors to raw bytes (no base64)."""
+        return [v.serialize() for v in vectors]
+
+    def _deserialize_vectors(self, vectors_raw: list[bytes]) -> list[ts.CKKSVector]:
+        """Deserialize raw byte vectors."""
+        return [ts.ckks_vector_from(self.context, raw) for raw in vectors_raw]
+
+    def _serialize_vectors_b64(self, vectors: list[ts.CKKSVector]) -> list[str]:
+        """Legacy base64 serialization for JSON fallback."""
         return [base64.b64encode(v.serialize()).decode("utf-8") for v in vectors]
 
-    def _deserialize_vectors(self, vectors_b64: list[str]) -> list[ts.CKKSVector]:
+    def _deserialize_vectors_b64(self, vectors_b64: list[str]) -> list[ts.CKKSVector]:
+        """Legacy base64 deserialization for JSON fallback."""
         result = []
         for b64 in vectors_b64:
             raw = base64.b64decode(b64)
@@ -86,23 +97,48 @@ class EncryptedLayerProtocol:
         enc_vectors: list[ts.CKKSVector],
         chunk_sizes: list[int] | None = None,
     ) -> list[ts.CKKSVector]:
-        """Send encrypted vectors to server, get encrypted results back."""
+        """Send encrypted vectors to server via msgpack binary transport.
+
+        Falls back to JSON+base64 if the binary endpoint is unavailable.
+        """
         payload = {
             "session_id": self.session_id,
             "layer_idx": layer_idx,
             "operation": operation,
-            "encrypted_vectors_b64": self._serialize_vectors(enc_vectors),
+            "encrypted_vectors": self._serialize_vectors(enc_vectors),
         }
         if chunk_sizes is not None:
             payload["chunk_sizes"] = chunk_sizes
 
-        response = self._http_session.post(
-            self.layer_url,
-            json=payload,
-            timeout=300,
-        )
-        response.raise_for_status()
-        data = response.json()
+        body = msgpack.packb(payload, use_bin_type=True)
+        try:
+            response = self._http_session.post(
+                self.layer_url + "/binary",
+                data=body,
+                headers={"Content-Type": "application/msgpack"},
+                timeout=300,
+            )
+            response.raise_for_status()
+            data = msgpack.unpackb(response.content, raw=False)
+            result_key = "encrypted_results"
+        except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError):
+            # Fallback to JSON+base64
+            fallback_payload = {
+                "session_id": self.session_id,
+                "layer_idx": layer_idx,
+                "operation": operation,
+                "encrypted_vectors_b64": self._serialize_vectors_b64(enc_vectors),
+            }
+            if chunk_sizes is not None:
+                fallback_payload["chunk_sizes"] = chunk_sizes
+            response = self._http_session.post(
+                self.layer_url,
+                json=fallback_payload,
+                timeout=300,
+            )
+            response.raise_for_status()
+            data = response.json()
+            result_key = "encrypted_results_b64"
 
         logger.info(
             f"Round {operation} complete",
@@ -111,7 +147,11 @@ class EncryptedLayerProtocol:
                 "server_ms": data.get("elapsed_ms"),
             }},
         )
-        return self._deserialize_vectors(data["encrypted_results_b64"])
+
+        if result_key == "encrypted_results":
+            return self._deserialize_vectors(data["encrypted_results"])
+        else:
+            return self._deserialize_vectors_b64(data["encrypted_results_b64"])
 
     def process_layer(
         self, hidden_states: np.ndarray, layer_idx: int,
