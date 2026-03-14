@@ -5,6 +5,8 @@ Hidden dim (2048) fits in one ciphertext.
 FFN intermediate dim (5632) does NOT fit → must split across 2 ciphertexts.
 """
 
+from concurrent.futures import ThreadPoolExecutor
+import time
 import numpy as np
 import tenseal as ts
 from common.logging_utils import get_logger
@@ -13,24 +15,39 @@ logger = get_logger("server.he_ops")
 
 SLOT_COUNT = 4096  # poly_modulus_degree // 2
 
+# Reuse thread pool across calls (SEAL releases GIL for C++ operations)
+_he_thread_pool = ThreadPoolExecutor(max_workers=4)
 
-def he_matmul(enc_vector: ts.CKKSVector, weight_matrix: np.ndarray) -> ts.CKKSVector:
+
+def he_matmul(
+    enc_vector: ts.CKKSVector,
+    weight_matrix: np.ndarray = None,
+    precomputed_list: list | None = None,
+) -> ts.CKKSVector:
     """Multiply encrypted vector by plaintext weight matrix.
 
     enc_vector: encrypted vector of dim D_in
     weight_matrix: plaintext (D_in, D_out) where D_out <= SLOT_COUNT
+    precomputed_list: pre-converted .tolist() result (avoids repeated conversion)
 
     Returns encrypted vector of dim D_out.
-    Uses TenSEAL's built-in matrix-vector multiplication (enc.mm).
     """
-    # TenSEAL mm expects the weight as a list of lists
-    # enc_vector.mm(matrix) computes: enc_vector @ matrix
-    weight_list = weight_matrix.tolist()
-    return enc_vector.mm(weight_list)
+    t0 = time.perf_counter()
+    if precomputed_list is not None:
+        result = enc_vector.mm(precomputed_list)
+    elif weight_matrix is not None:
+        result = enc_vector.mm(weight_matrix.tolist())
+    else:
+        raise ValueError("Either weight_matrix or precomputed_list must be provided")
+    elapsed = (time.perf_counter() - t0) * 1000
+    logger.debug(f"he_matmul: {elapsed:.1f}ms")
+    return result
 
 
 def he_matmul_split_output(
-    enc_vector: ts.CKKSVector, weight_matrix: np.ndarray
+    enc_vector: ts.CKKSVector,
+    weight_matrix: np.ndarray,
+    precomputed_chunks: list | None = None,
 ) -> list[ts.CKKSVector]:
     """Matrix multiply when output dim > SLOT_COUNT.
 
@@ -39,6 +56,12 @@ def he_matmul_split_output(
 
     Returns list of encrypted vectors, one per chunk.
     """
+    if precomputed_chunks is not None:
+        # Pre-split chunk lists provided — validate chunk count matches expected splits
+        if not isinstance(precomputed_chunks, list) or len(precomputed_chunks) == 0:
+            raise ValueError("precomputed_chunks must be a non-empty list")
+        return [enc_vector.mm(chunk) for chunk in precomputed_chunks]
+
     d_in, d_out = weight_matrix.shape
     if d_out <= SLOT_COUNT:
         return [he_matmul(enc_vector, weight_matrix)]
@@ -82,37 +105,80 @@ def he_matmul_split_input(
 
 
 def compute_qkv_projections(
-    enc_vector: ts.CKKSVector, weights: dict
+    enc_vector: ts.CKKSVector, weights: dict, weight_lists: dict | None = None,
 ) -> dict[str, ts.CKKSVector]:
     """Compute Q, K, V projections homomorphically.
 
     enc_vector: encrypted normed hidden state (dim 2048)
     weights: dict with q_proj, k_proj, v_proj matrices
+    weight_lists: optional pre-converted .tolist() dict for avoiding repeated conversion
 
     Returns dict with encrypted Q (2048), K (256), V (256).
     """
-    enc_q = he_matmul(enc_vector, weights["q_proj"])
-    enc_k = he_matmul(enc_vector, weights["k_proj"])
-    enc_v = he_matmul(enc_vector, weights["v_proj"])
-    return {"q": enc_q, "k": enc_k, "v": enc_v}
+    wl = weight_lists or {}
+
+    # Create independent copies of enc_vector for thread safety.
+    # TenSEAL/SEAL does not guarantee thread-safe concurrent reads on the
+    # same CKKSVector object (internal evaluator may use shared buffers).
+    raw = enc_vector.serialize()
+    ctx = enc_vector.context()
+    enc_q = ts.ckks_vector_from(ctx, raw)
+    enc_k = ts.ckks_vector_from(ctx, raw)
+    enc_v = ts.ckks_vector_from(ctx, raw)
+
+    # Submit Q, K, V matmuls in parallel (they're independent)
+    q_future = _he_thread_pool.submit(
+        he_matmul, enc_q, weights["q_proj"], precomputed_list=wl.get("q_proj"))
+    k_future = _he_thread_pool.submit(
+        he_matmul, enc_k, weights["k_proj"], precomputed_list=wl.get("k_proj"))
+    v_future = _he_thread_pool.submit(
+        he_matmul, enc_v, weights["v_proj"], precomputed_list=wl.get("v_proj"))
+
+    return {"q": q_future.result(), "k": k_future.result(), "v": v_future.result()}
 
 
 def compute_o_projection(
-    enc_attn: ts.CKKSVector, weights: dict
+    enc_attn: ts.CKKSVector, weights: dict, weight_lists: dict | None = None,
 ) -> ts.CKKSVector:
     """Compute output projection: Enc(attn) @ W_o."""
-    return he_matmul(enc_attn, weights["o_proj"])
+    wl = weight_lists or {}
+    return he_matmul(enc_attn, weights["o_proj"],
+                     precomputed_list=wl.get("o_proj"))
 
 
 def compute_ffn_gate_up(
-    enc_vector: ts.CKKSVector, weights: dict
+    enc_vector: ts.CKKSVector, weights: dict, weight_lists: dict | None = None,
 ) -> dict[str, list[ts.CKKSVector]]:
     """Compute gate and up projections (2048 → 5632, split output).
 
     Returns dict with lists of encrypted chunks for gate and up.
     """
-    gate_parts = he_matmul_split_output(enc_vector, weights["gate_proj"])
-    up_parts = he_matmul_split_output(enc_vector, weights["up_proj"])
+    wl = weight_lists or {}
+    gate_chunks = wl.get("gate_proj")
+    up_chunks = wl.get("up_proj")
+
+    # Check if pre-split chunks (list of list-of-lists) are available
+    if gate_chunks is not None and isinstance(gate_chunks, list) and len(gate_chunks) > 0 and isinstance(gate_chunks[0], list) and len(gate_chunks[0]) > 0 and isinstance(gate_chunks[0][0], list):
+        # Create independent copies for thread safety (avoid concurrent access to same CKKSVector)
+        raw = enc_vector.serialize()
+        ctx = enc_vector.context()
+        num_copies = len(gate_chunks) + len(up_chunks)
+        copies = [ts.ckks_vector_from(ctx, raw) for _ in range(num_copies)]
+        # Submit all chunk matmuls in parallel
+        gate_futures = [_he_thread_pool.submit(copies[i].mm, chunk) for i, chunk in enumerate(gate_chunks)]
+        up_futures = [_he_thread_pool.submit(copies[len(gate_chunks) + i].mm, chunk) for i, chunk in enumerate(up_chunks)]
+        gate_parts = [f.result() for f in gate_futures]
+        up_parts = [f.result() for f in up_futures]
+    else:
+        # Create copies for thread safety
+        raw = enc_vector.serialize()
+        ctx = enc_vector.context()
+        enc_gate = ts.ckks_vector_from(ctx, raw)
+        enc_up = ts.ckks_vector_from(ctx, raw)
+        gate_future = _he_thread_pool.submit(he_matmul_split_output, enc_gate, weights["gate_proj"])
+        up_future = _he_thread_pool.submit(he_matmul_split_output, enc_up, weights["up_proj"])
+        gate_parts = gate_future.result()
+        up_parts = up_future.result()
     return {"gate_parts": gate_parts, "up_parts": up_parts}
 
 

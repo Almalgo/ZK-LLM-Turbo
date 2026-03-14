@@ -1,12 +1,14 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 import base64
+import msgpack
+import zstandard as zstd
 import tenseal as ts
 import time
 import uuid
 from common.logging_utils import get_logger
 from server.handlers.session_handler import get_session
-from server.model.weight_manager import get_layer_weights
+from server.model.weight_manager import get_layer_weights, get_layer_weight_lists
 from server.inference.he_ops import (
     compute_qkv_projections,
     compute_o_projection,
@@ -16,6 +18,9 @@ from server.inference.he_ops import (
 
 logger = get_logger("server.inference")
 router = APIRouter()
+
+_zstd_compressor = zstd.ZstdCompressor(level=3)
+_zstd_decompressor = zstd.ZstdDecompressor()
 
 
 class LayerRequest(BaseModel):
@@ -63,6 +68,7 @@ async def process_layer(req: LayerRequest):
     try:
         context = get_session(req.session_id)
         weights = get_layer_weights(req.layer_idx)
+        weight_lists = get_layer_weight_lists(req.layer_idx)
         enc_vectors = _deserialize_vectors(context, req.encrypted_vectors_b64)
 
         logger.info(
@@ -77,18 +83,18 @@ async def process_layer(req: LayerRequest):
             # Input: N encrypted normed hidden states (batched)
             result_vectors = []
             for enc_v in enc_vectors:
-                qkv = compute_qkv_projections(enc_v, weights)
+                qkv = compute_qkv_projections(enc_v, weights, weight_lists=weight_lists)
                 result_vectors.extend([qkv["q"], qkv["k"], qkv["v"]])
 
         elif req.operation == "o_proj":
             # Input: N encrypted attention outputs (batched)
-            result_vectors = [compute_o_projection(enc_v, weights) for enc_v in enc_vectors]
+            result_vectors = [compute_o_projection(enc_v, weights, weight_lists=weight_lists) for enc_v in enc_vectors]
 
         elif req.operation == "ffn_gate_up":
             # Input: N encrypted normed hidden states (batched)
             result_vectors = []
             for enc_v in enc_vectors:
-                gu = compute_ffn_gate_up(enc_v, weights)
+                gu = compute_ffn_gate_up(enc_v, weights, weight_lists=weight_lists)
                 result_vectors.extend(gu["gate_parts"] + gu["up_parts"])
 
         elif req.operation == "ffn_down":
@@ -134,6 +140,110 @@ async def process_layer(req: LayerRequest):
         raise
     except Exception as e:
         logger.error("Layer op failed", extra={"extra": {"cid": cid, "error": str(e)}})
+        raise HTTPException(status_code=500, detail=f"Inference error: {e}")
+
+
+@router.post("/api/layer/binary")
+async def process_layer_binary(request: Request):
+    """Binary msgpack endpoint — no base64, no JSON overhead."""
+    start = time.perf_counter()
+    cid = str(uuid.uuid4())
+
+    try:
+        body = await request.body()
+
+        # Defense-in-depth: reject oversized compressed payloads before decompression
+        MAX_COMPRESSED_PAYLOAD = 10_000_000  # 10 MB
+        if len(body) > MAX_COMPRESSED_PAYLOAD:
+            raise HTTPException(status_code=413, detail="Compressed payload too large")
+
+        req_data = msgpack.unpackb(body, raw=False)
+
+        session_id = req_data["session_id"]
+        layer_idx = req_data["layer_idx"]
+        operation = req_data["operation"]
+        encrypted_vectors_raw = req_data["encrypted_vectors"]
+        chunk_sizes = req_data.get("chunk_sizes")
+
+        # --- Input validation ---
+        if not isinstance(layer_idx, int) or layer_idx < 0:
+            raise HTTPException(status_code=400, detail="Invalid layer_idx: must be a non-negative integer")
+        if not isinstance(session_id, str) or len(session_id) > 256:
+            raise HTTPException(status_code=400, detail="Invalid session_id")
+        if not isinstance(encrypted_vectors_raw, list):
+            raise HTTPException(status_code=400, detail="encrypted_vectors must be a list")
+        if len(encrypted_vectors_raw) > 100:
+            raise HTTPException(status_code=400, detail="Too many vectors (max 100)")
+
+        context = get_session(session_id)
+        weights = get_layer_weights(layer_idx)
+        weight_lists = get_layer_weight_lists(layer_idx)
+
+        # Decompress and deserialize vectors from raw bytes (with size cap to prevent zip bombs)
+        MAX_DECOMPRESSED_SIZE = 50_000_000  # 50MB per vector
+        enc_vectors = [
+            ts.ckks_vector_from(context, _zstd_decompressor.decompress(raw, max_output_size=MAX_DECOMPRESSED_SIZE))
+            for raw in encrypted_vectors_raw
+        ]
+
+        logger.info(
+            "Processing layer op (binary)",
+            extra={"extra": {
+                "cid": cid, "layer": layer_idx,
+                "op": operation, "num_vectors": len(enc_vectors),
+            }},
+        )
+
+        if operation == "qkv":
+            result_vectors = []
+            for enc_v in enc_vectors:
+                qkv = compute_qkv_projections(enc_v, weights, weight_lists=weight_lists)
+                result_vectors.extend([qkv["q"], qkv["k"], qkv["v"]])
+
+        elif operation == "o_proj":
+            result_vectors = [compute_o_projection(enc_v, weights, weight_lists=weight_lists) for enc_v in enc_vectors]
+
+        elif operation == "ffn_gate_up":
+            result_vectors = []
+            for enc_v in enc_vectors:
+                gu = compute_ffn_gate_up(enc_v, weights, weight_lists=weight_lists)
+                result_vectors.extend(gu["gate_parts"] + gu["up_parts"])
+
+        elif operation == "ffn_down":
+            if chunk_sizes is None:
+                raise HTTPException(status_code=400, detail="ffn_down requires chunk_sizes")
+            num_chunks = len(chunk_sizes)
+            batch_size = len(enc_vectors) // num_chunks
+            result_vectors = []
+            for i in range(batch_size):
+                token_chunks = enc_vectors[i * num_chunks : (i + 1) * num_chunks]
+                down = compute_ffn_down(token_chunks, weights, chunk_sizes)
+                result_vectors.append(down)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown operation: {operation}")
+
+        # Serialize and compress results
+        results_raw = [_zstd_compressor.compress(v.serialize()) for v in result_vectors]
+        elapsed_ms = (time.perf_counter() - start) * 1000
+
+        logger.info(
+            "Layer op complete (binary)",
+            extra={"extra": {"cid": cid, "op": operation, "elapsed_ms": round(elapsed_ms, 2)}},
+        )
+
+        response_data = msgpack.packb({
+            "encrypted_results": results_raw,
+            "operation": operation,
+            "layer_idx": layer_idx,
+            "elapsed_ms": round(elapsed_ms, 2),
+        }, use_bin_type=True)
+
+        return Response(content=response_data, media_type="application/msgpack")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Layer op failed (binary)", extra={"extra": {"cid": cid, "error": str(e)}})
         raise HTTPException(status_code=500, detail=f"Inference error: {e}")
 
 

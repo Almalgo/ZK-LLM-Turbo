@@ -3,3 +3,5 @@ torch>=2.0.0
 requests
 pyyaml
 tenseal
+msgpack
+zstandard
