@@ -4,4 +4,5 @@ server:
   infer_endpoint: "/api/infer"
   session_endpoint: "/api/session"
   layer_endpoint: "/api/layer"
+  layer_ws_endpoint: "/api/layer/ws"
   auth_token: "dbskdjbvsjhdfjhsdgfkjsdgfkjsdgfkjsd"

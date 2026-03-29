@@ -159,8 +159,10 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
         layer_endpoint=server_cfg["layer_endpoint"],
         auth_token=server_cfg["auth_token"],
         model_config=model_config,
+        websocket_layer_endpoint=server_cfg.get("layer_ws_endpoint"),
         use_merged_ffn=client_cfg.get("inference", {}).get("use_merged_ffn", False),
         use_poly_silu=client_cfg.get("inference", {}).get("use_poly_silu", False),
+        use_websocket=client_cfg.get("inference", {}).get("use_websocket", False),
     )
 
     # Tokenize
@@ -174,93 +176,96 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
     if not quiet:
         print(f'Generating {num_tokens} tokens for: "{prompt}"')
 
-    for step in range(num_tokens):
-        step_start = time.perf_counter()
+    try:
+        for step in range(num_tokens):
+            step_start = time.perf_counter()
 
-        # --- Embedding extraction ---
-        t0 = time.perf_counter()
-        if step == 0:
-            embeddings = extract_embeddings(input_ids)
-        else:
-            embeddings = extract_embeddings(input_ids[:, -1:])
-        stats["embedding"] += time.perf_counter() - t0
+            # --- Embedding extraction ---
+            t0 = time.perf_counter()
+            if step == 0:
+                embeddings = extract_embeddings(input_ids)
+            else:
+                embeddings = extract_embeddings(input_ids[:, -1:])
+            stats["embedding"] += time.perf_counter() - t0
 
-        hidden_states = embeddings
-        curr_seq_len = hidden_states.shape[0]
+            hidden_states = embeddings
+            curr_seq_len = hidden_states.shape[0]
 
-        # --- Encrypted layers ---
-        t0 = time.perf_counter()
-        for layer_idx in range(num_encrypted_layers):
-            layer = components["layers"][layer_idx]
-            input_ln_w = layer.input_layernorm.weight.detach().numpy()
-            post_attn_ln_w = layer.post_attention_layernorm.weight.detach().numpy()
-            eps = model_config.rms_norm_eps
-            hidden_states = protocol.process_layer(
-                hidden_states, layer_idx, input_ln_w, post_attn_ln_w, eps,
-                position_offset=position_offset,
-            )
-        stats["encrypted"] += time.perf_counter() - t0
-
-        # --- Plaintext layers ---
-        t0 = time.perf_counter()
-        device = next(components["layers"][0].parameters()).device
-        hidden_t = torch.tensor(hidden_states, dtype=torch.float32, device=device).unsqueeze(0)
-        position_ids = torch.arange(
-            position_offset, position_offset + curr_seq_len, device=device
-        ).unsqueeze(0)
-
-        if plaintext_cache is None:
-            from transformers import DynamicCache
-            plaintext_cache = DynamicCache()
-            num_kv_heads = model_config.num_key_value_heads
-            head_dim = model_config.hidden_size // model_config.num_attention_heads
-            for _ in range(num_encrypted_layers):
-                plaintext_cache.key_cache.append(
-                    torch.zeros(1, num_kv_heads, 0, head_dim, device=device)
-                )
-                plaintext_cache.value_cache.append(
-                    torch.zeros(1, num_kv_heads, 0, head_dim, device=device)
-                )
-
-        with torch.no_grad():
-            for layer_idx in range(num_encrypted_layers, total_layers):
+            # --- Encrypted layers ---
+            t0 = time.perf_counter()
+            for layer_idx in range(num_encrypted_layers):
                 layer = components["layers"][layer_idx]
-                output = layer(
-                    hidden_t,
-                    position_ids=position_ids,
-                    past_key_value=plaintext_cache,
-                    use_cache=True,
+                input_ln_w = layer.input_layernorm.weight.detach().numpy()
+                post_attn_ln_w = layer.post_attention_layernorm.weight.detach().numpy()
+                eps = model_config.rms_norm_eps
+                hidden_states = protocol.process_layer(
+                    hidden_states, layer_idx, input_ln_w, post_attn_ln_w, eps,
+                    position_offset=position_offset,
                 )
-                hidden_t = output[0]
+            stats["encrypted"] += time.perf_counter() - t0
 
-        hidden_states = hidden_t.squeeze(0).numpy()
-        position_offset += curr_seq_len
-        stats["plaintext"] += time.perf_counter() - t0
+            # --- Plaintext layers ---
+            t0 = time.perf_counter()
+            device = next(components["layers"][0].parameters()).device
+            hidden_t = torch.tensor(hidden_states, dtype=torch.float32, device=device).unsqueeze(0)
+            position_ids = torch.arange(
+                position_offset, position_offset + curr_seq_len, device=device
+            ).unsqueeze(0)
 
-        # --- Token decode (final norm + lm_head + argmax) ---
-        t0 = time.perf_counter()
-        final_norm_w = components["final_norm_weight"]
-        eps = model_config.rms_norm_eps
-        last_hidden = rms_norm(hidden_states[-1:], final_norm_w, eps)
+            if plaintext_cache is None:
+                from transformers import DynamicCache
+                plaintext_cache = DynamicCache()
+                num_kv_heads = model_config.num_key_value_heads
+                head_dim = model_config.hidden_size // model_config.num_attention_heads
+                for _ in range(num_encrypted_layers):
+                    plaintext_cache.key_cache.append(
+                        torch.zeros(1, num_kv_heads, 0, head_dim, device=device)
+                    )
+                    plaintext_cache.value_cache.append(
+                        torch.zeros(1, num_kv_heads, 0, head_dim, device=device)
+                    )
 
-        lm_head_w = components["lm_head_weight"]
-        logits = last_hidden @ lm_head_w.T
+            with torch.no_grad():
+                for layer_idx in range(num_encrypted_layers, total_layers):
+                    layer = components["layers"][layer_idx]
+                    output = layer(
+                        hidden_t,
+                        position_ids=position_ids,
+                        past_key_value=plaintext_cache,
+                        use_cache=True,
+                    )
+                    hidden_t = output[0]
 
-        next_token_id = int(np.argmax(logits[0]))
-        generated_tokens.append(next_token_id)
-        stats["decode"] += time.perf_counter() - t0
+            hidden_states = hidden_t.squeeze(0).numpy()
+            position_offset += curr_seq_len
+            stats["plaintext"] += time.perf_counter() - t0
 
-        next_token_text = tokenizer.decode([next_token_id])
-        elapsed = time.perf_counter() - step_start
-        if not quiet:
-            print(f"  Token {step + 1}/{num_tokens}: {next_token_text!r} ({elapsed:.1f}s)")
+            # --- Token decode (final norm + lm_head + argmax) ---
+            t0 = time.perf_counter()
+            final_norm_w = components["final_norm_weight"]
+            eps = model_config.rms_norm_eps
+            last_hidden = rms_norm(hidden_states[-1:], final_norm_w, eps)
 
-        logger.info(f"Generated token: {next_token_text}", extra={"extra": {
-            "cid": cid, "token_id": next_token_id, "step": step,
-        }})
+            lm_head_w = components["lm_head_weight"]
+            logits = last_hidden @ lm_head_w.T
 
-        new_token = torch.tensor([[next_token_id]], dtype=input_ids.dtype)
-        input_ids = torch.cat([input_ids, new_token], dim=1)
+            next_token_id = int(np.argmax(logits[0]))
+            generated_tokens.append(next_token_id)
+            stats["decode"] += time.perf_counter() - t0
+
+            next_token_text = tokenizer.decode([next_token_id])
+            elapsed = time.perf_counter() - step_start
+            if not quiet:
+                print(f"  Token {step + 1}/{num_tokens}: {next_token_text!r} ({elapsed:.1f}s)")
+
+            logger.info(f"Generated token: {next_token_text}", extra={"extra": {
+                "cid": cid, "token_id": next_token_id, "step": step,
+            }})
+
+            new_token = torch.tensor([[next_token_id]], dtype=input_ids.dtype)
+            input_ids = torch.cat([input_ids, new_token], dim=1)
+    finally:
+        protocol.close()
 
     # Decode full output
     output_text = tokenizer.decode(generated_tokens, skip_special_tokens=True)

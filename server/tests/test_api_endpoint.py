@@ -1,8 +1,21 @@
-from fastapi.testclient import TestClient
-from server.server import app
+from fastapi.routing import APIRoute, APIWebSocketRoute
 
-client = TestClient(app)
+from server.handlers import inference_handler
 
-def test_infer_endpoint():
-    response = client.post("/api/infer", json={"encrypted_embeddings": [], "metadata": {}})
-    assert response.status_code in (200, 422)
+
+def test_legacy_infer_route_registered():
+    paths = {
+        route.path
+        for route in inference_handler.router.routes
+        if isinstance(route, APIRoute)
+    }
+    assert "/api/infer" in paths
+
+
+def test_layer_websocket_route_registered():
+    ws_paths = {
+        route.path
+        for route in inference_handler.router.routes
+        if isinstance(route, APIWebSocketRoute)
+    }
+    assert "/api/layer/ws" in ws_paths

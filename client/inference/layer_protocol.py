@@ -28,6 +28,7 @@ import requests
 import msgpack
 import zstandard as zstd
 import tenseal as ts
+from websockets.sync.client import connect
 from common.constants import SLOT_COUNT
 from common.logging_utils import get_logger
 from client.inference.nonlinear_ops import (
@@ -53,8 +54,10 @@ class EncryptedLayerProtocol:
         layer_endpoint: str,
         auth_token: str,
         model_config,
+        websocket_layer_endpoint: str | None = None,
         use_merged_ffn: bool = False,
         use_poly_silu: bool = False,
+        use_websocket: bool = False,
     ):
         self.context = context
         self.session_id = session_id
@@ -62,10 +65,16 @@ class EncryptedLayerProtocol:
         self.layer_url = server_url + layer_endpoint
         self.auth_token = auth_token
         self.config = model_config
+        self.websocket_url = self._build_websocket_url(
+            server_url,
+            websocket_layer_endpoint or f"{layer_endpoint}/ws",
+        )
         self.use_merged_ffn = use_merged_ffn
         self.use_poly_silu = use_poly_silu
+        self.use_websocket = use_websocket
         self._kv_cache = {}  # layer_idx -> {"k": ndarray, "v": ndarray}
         self._round_metrics = []
+        self._websocket = None
 
         # Reuse HTTP connection across all requests
         self._http_session = requests.Session()
@@ -73,6 +82,34 @@ class EncryptedLayerProtocol:
             "Authorization": f"Bearer {self.auth_token}",
             "Content-Type": "application/json",
         })
+
+    @staticmethod
+    def _build_websocket_url(server_url: str, websocket_layer_endpoint: str) -> str:
+        if server_url.startswith("https://"):
+            ws_base = "wss://" + server_url[len("https://") :]
+        elif server_url.startswith("http://"):
+            ws_base = "ws://" + server_url[len("http://") :]
+        else:
+            ws_base = server_url
+        return ws_base.rstrip("/") + websocket_layer_endpoint
+
+    def _ensure_websocket(self):
+        if self._websocket is None:
+            self._websocket = connect(
+                self.websocket_url,
+                additional_headers={"Authorization": f"Bearer {self.auth_token}"},
+                compression=None,
+                open_timeout=30,
+                close_timeout=10,
+                max_size=None,
+            )
+        return self._websocket
+
+    def close(self) -> None:
+        if self._websocket is not None:
+            self._websocket.close()
+            self._websocket = None
+        self._http_session.close()
 
     def reset_round_metrics(self) -> None:
         """Clear captured per-round transport metrics."""
@@ -176,44 +213,60 @@ class EncryptedLayerProtocol:
         body = msgpack.packb(payload, use_bin_type=True)
         payload_bytes = len(body)
         used_binary = True
+        response_content = b""
 
-        try:
-            response = self._http_session.post(
-                self.layer_url + "/binary",
-                data=body,
-                headers={"Content-Type": "application/msgpack"},
-                timeout=300,
-            )
-            response.raise_for_status()
-        except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError):
-            # Fallback to JSON+base64, reusing already-serialized raw bytes
-            used_binary = False
-            vectors_b64 = [base64.b64encode(raw).decode("utf-8") for raw in
-                           [_zstd_decompressor.decompress(s) for s in serialized]]
-            fallback_payload = {
-                "session_id": self.session_id,
-                "layer_idx": layer_idx,
-                "operation": operation,
-                "encrypted_vectors_b64": vectors_b64,
-            }
-            if chunk_sizes is not None:
-                fallback_payload["chunk_sizes"] = chunk_sizes
-            if pack_counts is not None:
-                fallback_payload["pack_counts"] = pack_counts
-            response = self._http_session.post(
-                self.layer_url,
-                json=fallback_payload,
-                timeout=300,
-            )
-            response.raise_for_status()
-            payload_bytes = len(response.request.body) if response.request.body else 0
+        if self.use_websocket:
+            try:
+                ws = self._ensure_websocket()
+                ws.send(body)
+                response_content = ws.recv()
+            except Exception:
+                self.close()
+                self.use_websocket = False
+                logger.warning(
+                    "WebSocket transport unavailable, falling back to HTTP",
+                    extra={"extra": {"layer": layer_idx, "op": operation}},
+                )
+
+        if not response_content:
+            try:
+                response = self._http_session.post(
+                    self.layer_url + "/binary",
+                    data=body,
+                    headers={"Content-Type": "application/msgpack"},
+                    timeout=300,
+                )
+                response.raise_for_status()
+                response_content = response.content
+            except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError):
+                used_binary = False
+                vectors_b64 = [base64.b64encode(raw).decode("utf-8") for raw in
+                               [_zstd_decompressor.decompress(s) for s in serialized]]
+                fallback_payload = {
+                    "session_id": self.session_id,
+                    "layer_idx": layer_idx,
+                    "operation": operation,
+                    "encrypted_vectors_b64": vectors_b64,
+                }
+                if chunk_sizes is not None:
+                    fallback_payload["chunk_sizes"] = chunk_sizes
+                if pack_counts is not None:
+                    fallback_payload["pack_counts"] = pack_counts
+                response = self._http_session.post(
+                    self.layer_url,
+                    json=fallback_payload,
+                    timeout=300,
+                )
+                response.raise_for_status()
+                response_content = response.content
+                payload_bytes = len(response.request.body) if response.request.body else 0
 
         roundtrip_ms = (time.perf_counter() - t0) * 1000
 
         # Time deserialization + decompression
         t0 = time.perf_counter()
         if used_binary:
-            data = msgpack.unpackb(response.content, raw=False)
+            data = msgpack.unpackb(response_content, raw=False)
             result = self._deserialize_vectors(data["encrypted_results"])
         else:
             data = response.json()
@@ -226,14 +279,14 @@ class EncryptedLayerProtocol:
         metrics = {
             "layer": layer_idx,
             "op": operation,
-            "transport": "binary" if used_binary else "json",
+            "transport": "websocket" if self.use_websocket and used_binary else ("binary" if used_binary else "json"),
             "serialize_ms": round(serialize_ms, 1),
             "server_ms": round(server_ms, 1),
             "network_ms": round(network_ms, 1),
             "deserialize_ms": round(deserialize_ms, 1),
             "roundtrip_ms": round(roundtrip_ms, 1),
             "payload_kb": round(payload_bytes / 1024, 1),
-            "response_kb": round(len(response.content) / 1024, 1),
+            "response_kb": round(len(response_content) / 1024, 1),
         }
         self._round_metrics.append(metrics)
 

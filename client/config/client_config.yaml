@@ -13,3 +13,4 @@ inference:
   num_tokens_to_generate: 5
   use_poly_silu: true
   use_merged_ffn: true
+  use_websocket: true

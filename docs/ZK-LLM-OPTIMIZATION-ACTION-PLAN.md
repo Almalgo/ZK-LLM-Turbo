@@ -375,6 +375,9 @@ The repo now uses `poly_modulus_degree=16384` with a depth-5 coefficient chain a
 
 ### T2.4 -- WebSocket Persistent Connection
 
+**Status update (2026-03-29): Implemented.**
+The client protocol now supports a persistent WebSocket transport using the same msgpack+zstd payloads as the HTTP binary endpoint, with HTTP fallback kept for compatibility.
+
 | | |
 |---|---|
 | **Why** | Eliminates per-round HTTP overhead, enables server push for pipelining (T2.5). |
