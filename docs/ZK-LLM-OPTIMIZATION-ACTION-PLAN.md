@@ -491,6 +491,9 @@ Core runtime modules now use [`common/he_backend.py`](common/he_backend.py) inst
 
 ### T3.2 -- Diagonal Packing MatMul (THOR-style)
 
+**Status update (2026-03-29): Preprocessing groundwork landed; runtime blocked.**
+Per-layer cyclic diagonal extraction and caching are now implemented in `weight_manager.py`, but the actual packed-matmul runtime remains blocked on a working post-TenSEAL backend. See [T3.2 status](T3.2-DIAGONAL-PACKING-STATUS.md).
+
 | | |
 |---|---|
 | **Why** | Standard CKKS matrix-vector multiply: O(D) rotations. Baby-step/giant-step diagonal packing: O(sqrt(D)). For D=2048: ~45 rotations vs ~2048. **Corrected estimate: 5-15x** matmul speedup. |

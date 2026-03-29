@@ -9,6 +9,7 @@ logger = get_logger("server.weights")
 _model = None
 _layer_weight_cache: dict[int, dict] = {}
 _layer_weight_lists: dict[int, dict] = {}  # Pre-converted .tolist() cache
+_layer_diagonal_weight_cache: dict[int, dict[str, list[list[float]]]] = {}
 MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 
@@ -91,3 +92,32 @@ def get_layer_weight_lists(layer_idx: int) -> dict[str, list]:
     _layer_weight_lists[layer_idx] = weight_lists
     logger.info("Layer weight lists cached", extra={"extra": {"layer_idx": layer_idx}})
     return weight_lists
+
+
+def _matrix_to_diagonals(weight_matrix: np.ndarray) -> list[list[float]]:
+    """Convert a matrix into cyclic diagonals for future packed matmul backends."""
+    rows, cols = weight_matrix.shape
+    diagonals = []
+    for offset in range(cols):
+        diagonal = [
+            float(weight_matrix[row_idx, (row_idx + offset) % cols])
+            for row_idx in range(rows)
+        ]
+        diagonals.append(diagonal)
+    return diagonals
+
+
+def get_layer_diagonal_weights(layer_idx: int) -> dict[str, list[list[float]]]:
+    """Return cyclic diagonals for each 2D layer weight matrix."""
+    if layer_idx in _layer_diagonal_weight_cache:
+        return _layer_diagonal_weight_cache[layer_idx]
+
+    weights = get_layer_weights(layer_idx)
+    diagonal_weights = {
+        name: _matrix_to_diagonals(weight)
+        for name, weight in weights.items()
+        if weight.ndim == 2
+    }
+    _layer_diagonal_weight_cache[layer_idx] = diagonal_weights
+    logger.info("Layer diagonal weights cached", extra={"extra": {"layer_idx": layer_idx}})
+    return diagonal_weights
