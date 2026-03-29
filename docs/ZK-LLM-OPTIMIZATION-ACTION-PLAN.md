@@ -560,6 +560,9 @@ The repo still only has the Phase 2 SiLU approximations. RMSNorm and softmax pol
 
 ### T3.5 -- Non-Interactive Protocol
 
+**Status update (2026-03-29): Blocked by upstream Phase 3 tasks.**
+The one-request / one-response protocol is not implementable yet because both GPU-backed HE execution and the full polynomial model remain blocked. See [T3.5 status](T3.5-NON-INTERACTIVE-PROTOCOL-STATUS.md).
+
 | | |
 |---|---|
 | **Why** | Client sends `Enc(embeddings)`, server processes all 22 layers homomorphically, returns `Enc(logits)`. Zero round-trips. |
