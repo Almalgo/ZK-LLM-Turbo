@@ -20,7 +20,9 @@ def create_ckks_context(
         poly_modulus_degree=cfg["poly_modulus_degree"],
         coeff_mod_bit_sizes=cfg["coeff_mod_bit_sizes"],
     )
-    context.global_scale = global_scale_override or cfg["global_scale"]
+    context.global_scale = (
+        global_scale_override if global_scale_override is not None else cfg["global_scale"]
+    )
 
     if cfg.get("use_galois_keys", False):
         context.generate_galois_keys()
