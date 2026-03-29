@@ -61,6 +61,7 @@ class EncryptedLayerProtocol:
         self.auth_token = auth_token
         self.config = model_config
         self._kv_cache = {}  # layer_idx -> {"k": ndarray, "v": ndarray}
+        self._round_metrics = []
 
         # Reuse HTTP connection across all requests
         self._http_session = requests.Session()
@@ -68,6 +69,14 @@ class EncryptedLayerProtocol:
             "Authorization": f"Bearer {self.auth_token}",
             "Content-Type": "application/json",
         })
+
+    def reset_round_metrics(self) -> None:
+        """Clear captured per-round transport metrics."""
+        self._round_metrics.clear()
+
+    def get_round_metrics(self) -> list[dict]:
+        """Return captured per-round transport metrics."""
+        return list(self._round_metrics)
 
     def _encrypt_vector(self, vec: np.ndarray) -> ts.CKKSVector:
         return ts.ckks_vector(self.context, vec.tolist())
@@ -171,18 +180,23 @@ class EncryptedLayerProtocol:
         server_ms = data.get("elapsed_ms", 0)
         network_ms = max(0, roundtrip_ms - server_ms)
 
+        metrics = {
+            "layer": layer_idx,
+            "op": operation,
+            "transport": "binary" if used_binary else "json",
+            "serialize_ms": round(serialize_ms, 1),
+            "server_ms": round(server_ms, 1),
+            "network_ms": round(network_ms, 1),
+            "deserialize_ms": round(deserialize_ms, 1),
+            "roundtrip_ms": round(roundtrip_ms, 1),
+            "payload_kb": round(payload_bytes / 1024, 1),
+            "response_kb": round(len(response.content) / 1024, 1),
+        }
+        self._round_metrics.append(metrics)
+
         logger.info(
             f"Round {operation} complete",
-            extra={"extra": {
-                "layer": layer_idx, "op": operation,
-                "transport": "binary" if used_binary else "json",
-                "serialize_ms": round(serialize_ms, 1),
-                "server_ms": round(server_ms, 1),
-                "network_ms": round(network_ms, 1),
-                "deserialize_ms": round(deserialize_ms, 1),
-                "payload_kb": round(payload_bytes / 1024, 1),
-                "response_kb": round(len(response.content) / 1024, 1),
-            }},
+            extra={"extra": metrics},
         )
         return result
 

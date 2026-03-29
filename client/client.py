@@ -92,7 +92,8 @@ def _print_stats(stats):
 
 
 def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
-             show_stats: bool = False):
+             show_stats: bool = False, return_stats: bool = False,
+             quiet: bool = False):
     """Generate tokens using split encrypted/plaintext inference.
 
     Args:
@@ -122,7 +123,8 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
     client_cfg, server_cfg = load_config()
 
     # Load tokenizer and model
-    print("Loading model...")
+    if not quiet:
+        print("Loading model...")
     t0 = time.perf_counter()
     tokenizer = load_tokenizer()
     components = get_model_components()
@@ -133,7 +135,8 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
     stats["model_loading"] = time.perf_counter() - t0
 
     # Setup server session
-    print("Establishing encrypted session...")
+    if not quiet:
+        print("Establishing encrypted session...")
     t0 = time.perf_counter()
     session_id = setup_session(context, server_cfg)
     stats["session_setup"] = time.perf_counter() - t0
@@ -156,7 +159,8 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
     position_offset = 0
     plaintext_cache = None
 
-    print(f'Generating {num_tokens} tokens for: "{prompt}"')
+    if not quiet:
+        print(f'Generating {num_tokens} tokens for: "{prompt}"')
 
     for step in range(num_tokens):
         step_start = time.perf_counter()
@@ -236,7 +240,8 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
 
         next_token_text = tokenizer.decode([next_token_id])
         elapsed = time.perf_counter() - step_start
-        print(f"  Token {step + 1}/{num_tokens}: {next_token_text!r} ({elapsed:.1f}s)")
+        if not quiet:
+            print(f"  Token {step + 1}/{num_tokens}: {next_token_text!r} ({elapsed:.1f}s)")
 
         logger.info(f"Generated token: {next_token_text}", extra={"extra": {
             "cid": cid, "token_id": next_token_id, "step": step,
@@ -254,10 +259,20 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
         "cid": cid, "generated": output_text, "full": full_text,
     }})
 
-    print(f"\nFull output: {full_text}")
+    if not quiet:
+        print(f"\nFull output: {full_text}")
 
-    if show_stats:
+    if show_stats and not quiet:
         _print_stats(stats)
+
+    if return_stats:
+        return {
+            "full_text": full_text,
+            "generated_text": output_text,
+            "generated_token_ids": generated_tokens,
+            "tokens_generated": len(generated_tokens),
+            "stats": stats,
+        }
 
     return full_text
 
