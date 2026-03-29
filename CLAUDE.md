@@ -10,15 +10,15 @@ ZK-LLM-Turbo is a privacy-preserving split-inference prototype built around:
 
 The current codebase is organized as:
 
-- [client](/home/rojo/Documents/Repos/ZK-LLM-Turbo/client): tokenizer, embeddings, CKKS context creation, client-side inference protocol
-- [server](/home/rojo/Documents/Repos/ZK-LLM-Turbo/server): FastAPI app, session handling, encrypted linear algebra, model weight management
-- [common](/home/rojo/Documents/Repos/ZK-LLM-Turbo/common): shared logging utilities
-- [benchmarks](/home/rojo/Documents/Repos/ZK-LLM-Turbo/benchmarks): benchmark entrypoints and shared reporting helpers
-- [docs](/home/rojo/Documents/Repos/ZK-LLM-Turbo/docs): plans, findings, and research notes
+- `client/`: tokenizer, embeddings, CKKS context creation, client-side inference protocol
+- `server/`: FastAPI app, session handling, encrypted linear algebra, model weight management
+- `common/`: shared logging utilities
+- `benchmarks/`: benchmark entrypoints and shared reporting helpers
+- `docs/`: plans, findings, and research notes
 
 ## Architecture Notes
 
-The active split-inference protocol is implemented in [layer_protocol.py](/home/rojo/Documents/Repos/ZK-LLM-Turbo/client/inference/layer_protocol.py) and [inference_handler.py](/home/rojo/Documents/Repos/ZK-LLM-Turbo/server/handlers/inference_handler.py).
+The active split-inference protocol is implemented in `client/inference/layer_protocol.py` and `server/handlers/inference_handler.py`.
 
 Each encrypted decoder layer currently uses 4 network rounds:
 
@@ -34,13 +34,13 @@ Current Phase 1 findings that matter for future work:
 
 See:
 
-- [ZK-LLM-OPTIMIZATION-ACTION-PLAN.md](/home/rojo/Documents/Repos/ZK-LLM-Turbo/docs/ZK-LLM-OPTIMIZATION-ACTION-PLAN.md)
-- [T1.3-MULTI-TOKEN-PACKING-SPIKE.md](/home/rojo/Documents/Repos/ZK-LLM-Turbo/docs/T1.3-MULTI-TOKEN-PACKING-SPIKE.md)
-- [T1.4-SELECTIVE-GALOIS-KEYS-FINDING.md](/home/rojo/Documents/Repos/ZK-LLM-Turbo/docs/T1.4-SELECTIVE-GALOIS-KEYS-FINDING.md)
+- `docs/ZK-LLM-OPTIMIZATION-ACTION-PLAN.md`
+- `docs/T1.3-MULTI-TOKEN-PACKING-SPIKE.md`
+- `docs/T1.4-SELECTIVE-GALOIS-KEYS-FINDING.md`
 
 ## CKKS Parameters
 
-Default client config lives in [client_config.yaml](/home/rojo/Documents/Repos/ZK-LLM-Turbo/client/config/client_config.yaml):
+Default client config lives in `client/config/client_config.yaml`:
 
 - `poly_modulus_degree: 8192`
 - `coeff_mod_bit_sizes: [60, 40, 40, 60]`
@@ -102,10 +102,10 @@ Notes:
 
 Benchmark entrypoints:
 
-- [bench_he_matmul.py](/home/rojo/Documents/Repos/ZK-LLM-Turbo/benchmarks/bench_he_matmul.py)
-- [bench_serialization.py](/home/rojo/Documents/Repos/ZK-LLM-Turbo/benchmarks/bench_serialization.py)
-- [bench_network.py](/home/rojo/Documents/Repos/ZK-LLM-Turbo/benchmarks/bench_network.py)
-- [bench_e2e.py](/home/rojo/Documents/Repos/ZK-LLM-Turbo/benchmarks/bench_e2e.py)
+- `benchmarks/bench_he_matmul.py`
+- `benchmarks/bench_serialization.py`
+- `benchmarks/bench_network.py`
+- `benchmarks/bench_e2e.py`
 
 Run all benchmarks:
 
@@ -117,7 +117,7 @@ Important:
 
 - `bench_he_matmul.py` and `bench_serialization.py` are offline.
 - `bench_network.py` and `bench_e2e.py` require a running server.
-- Benchmark results are written to [benchmarks/results](/home/rojo/Documents/Repos/ZK-LLM-Turbo/benchmarks/results).
+- Benchmark results are written to `benchmarks/results/`.
 
 ## Conventions
 

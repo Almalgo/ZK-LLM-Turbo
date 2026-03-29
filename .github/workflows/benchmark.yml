@@ -45,7 +45,14 @@ jobs:
         if: ${{ inputs.run_online == 'true' }}
         run: |
           nohup python -m server.server > benchmark-server.log 2>&1 &
-          sleep 20
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8000/docs > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Server did not become ready in time" >&2
+          exit 1
 
       - name: Run online benchmarks
         if: ${{ inputs.run_online == 'true' }}
