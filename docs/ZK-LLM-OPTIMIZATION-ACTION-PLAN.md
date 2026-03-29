@@ -577,6 +577,9 @@ The one-request / one-response protocol is not implementable yet because both GP
 
 ### T3.6 -- Phase 3 Accuracy Gate
 
+**Status update (2026-03-29): No-go for Phase 4.**
+Phase 3 did not reach the backend, polynomial-model, or non-interactive milestones required for a meaningful accuracy gate. See [T3.6 gate report](T3.6-PHASE-3-ACCURACY-GATE.md).
+
 | | |
 |---|---|
 | **Effort** | 3 days |
