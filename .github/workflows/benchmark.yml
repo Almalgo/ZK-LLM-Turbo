@@ -1,0 +1,101 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_online:
+        description: "Run server-backed network and e2e benchmarks"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      pr_number:
+        description: "Optional PR number to comment on"
+        required: false
+        type: string
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run offline benchmarks
+        run: |
+          python benchmarks/bench_he_matmul.py --output benchmarks/results/ci_bench_he_matmul.json
+          python benchmarks/bench_serialization.py --output benchmarks/results/ci_bench_serialization.json
+
+      - name: Start server
+        if: ${{ inputs.run_online == 'true' }}
+        run: |
+          nohup python -m server.server > benchmark-server.log 2>&1 &
+          sleep 20
+
+      - name: Run online benchmarks
+        if: ${{ inputs.run_online == 'true' }}
+        run: |
+          python benchmarks/bench_network.py --output benchmarks/results/ci_bench_network.json
+          python benchmarks/bench_e2e.py --layers 1 --samples 1 --output benchmarks/results/ci_bench_e2e.json
+
+      - name: Write summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          result_files = sorted(Path("benchmarks/results").glob("ci_bench_*.json"))
+          lines = ["# Benchmark Summary", ""]
+          if not result_files:
+            lines.append("No benchmark result files were produced.")
+          for path in result_files:
+            data = json.loads(path.read_text())
+            lines.append(f"## {path.name}")
+            for result in data.get("results", []):
+              lines.append(
+                f"- {result['name']}: mean={result['mean_ms']}ms std={result['std_ms']}ms samples={result['samples']}"
+              )
+            lines.append("")
+          Path("benchmark-summary.md").write_text("\n".join(lines).strip() + "\n")
+          PY
+          cat benchmark-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            benchmarks/results/ci_bench_*.json
+            benchmark-summary.md
+            benchmark-server.log
+          if-no-files-found: warn
+
+      - name: Comment on PR
+        if: ${{ inputs.pr_number != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('benchmark-summary.md', 'utf8');
+            const issueNumber = Number('${{ inputs.pr_number }}');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body
+            });
