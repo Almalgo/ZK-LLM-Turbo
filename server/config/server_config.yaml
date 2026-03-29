@@ -5,3 +5,7 @@ ckks:
   use_galois_keys: true
   use_relin_keys: false
 
+session:
+  max_sessions: 50
+  session_ttl_seconds: 3600
+  cleanup_interval_seconds: 60

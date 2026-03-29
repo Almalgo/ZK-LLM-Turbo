@@ -1,7 +1,12 @@
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from server.handlers.inference_handler import router as inference_router
-from server.handlers.session_handler import router as session_router
+from server.handlers.session_handler import (
+    cleanup_expired_sessions,
+    load_session_config,
+    router as session_router,
+)
 from server.model.weight_manager import load_model
 import uvicorn
 from dotenv import load_dotenv
@@ -31,9 +36,24 @@ async def lifespan(app: FastAPI):
     logger.info("Server starting — loading model...")
     load_model()
     _check_hexl()
+    session_cfg = load_session_config()
+
+    async def _session_cleanup_loop():
+        while True:
+            cleanup_expired_sessions(session_cfg["session_ttl_seconds"])
+            await asyncio.sleep(session_cfg["cleanup_interval_seconds"])
+
+    cleanup_task = asyncio.create_task(_session_cleanup_loop())
     logger.info("Model loaded, server ready.")
-    yield
-    logger.info("Server shutting down.")
+    try:
+        yield
+    finally:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Server shutting down.")
 
 
 app = FastAPI(title="ZK-LLM-Turbo Server (Milestone 4)", lifespan=lifespan)
