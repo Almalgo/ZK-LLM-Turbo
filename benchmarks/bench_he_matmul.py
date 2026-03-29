@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from benchmarks.common import benchmark_operation, seeded_rng, summarize_samples, write_benchmark_report
+from benchmarks.common import benchmark_operation, load_ckks_params, seeded_rng, summarize_samples, write_benchmark_report
 from client.encryption.ckks_context import create_ckks_context
 from server.inference.he_ops import he_matmul, he_matmul_split_input, he_matmul_split_output
 
@@ -33,6 +33,12 @@ def main() -> None:
     parser.add_argument("--warmups", type=int, default=1, help="Warmup runs per dimension.")
     parser.add_argument("--seed", type=int, default=0, help="Deterministic RNG seed.")
     parser.add_argument(
+        "--config-path",
+        type=str,
+        default="client/config/client_config.yaml",
+        help="Client config path used to create the CKKS context.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("benchmarks/results/bench_he_matmul.json"),
@@ -40,7 +46,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    context = create_ckks_context()
+    context = create_ckks_context(config_path=args.config_path)
     rng = seeded_rng(args.seed)
     results = []
 
@@ -117,6 +123,7 @@ def main() -> None:
         args.output,
         results,
         metadata={"matrix_source": "synthetic", "seed": args.seed},
+        ckks_params=load_ckks_params(Path(args.config_path)),
     )
 
     print(f"Wrote {output_path}")

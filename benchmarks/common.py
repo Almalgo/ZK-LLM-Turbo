@@ -75,6 +75,7 @@ def write_benchmark_report(
     output_path: Path,
     results: list[dict],
     metadata: dict | None = None,
+    ckks_params: dict | None = None,
 ) -> Path:
     """Write benchmark results in the shared JSON envelope."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -82,7 +83,7 @@ def write_benchmark_report(
     report = {
         "timestamp": datetime.now(UTC).isoformat(),
         "git_sha": current_git_sha(),
-        "ckks_params": load_ckks_params(),
+        "ckks_params": ckks_params or load_ckks_params(),
         "results": results,
     }
     if metadata:

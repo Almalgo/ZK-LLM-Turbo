@@ -1,5 +1,7 @@
 """End-to-end accuracy tests: compare encrypted vs plaintext single-layer output."""
 
+import os
+
 import pytest
 import numpy as np
 import tenseal as ts
@@ -10,12 +12,13 @@ class TestEncryptedAccuracy:
     """Verify that CKKS encryption introduces only small numerical errors."""
 
     def setup_method(self):
+        configured_scale = int(os.getenv("ZKLLM_CKKS_SCALE", str(2**40)))
         self.context = ts.context(
             ts.SCHEME_TYPE.CKKS,
             poly_modulus_degree=8192,
             coeff_mod_bit_sizes=[60, 40, 40, 60],
         )
-        self.context.global_scale = 2**40
+        self.context.global_scale = configured_scale
         self.context.generate_galois_keys()
         self.context.generate_relin_keys()
 

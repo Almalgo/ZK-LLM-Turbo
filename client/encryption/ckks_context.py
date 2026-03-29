@@ -3,16 +3,24 @@ import yaml
 from pathlib import Path
 
 
-def create_ckks_context(config_path: str = "client/config/client_config.yaml"):
+def load_ckks_config(config_path: str = "client/config/client_config.yaml") -> dict:
+    """Load the CKKS section from the client config file."""
+    return yaml.safe_load(Path(config_path).read_text())["ckks"]
+
+
+def create_ckks_context(
+    config_path: str = "client/config/client_config.yaml",
+    global_scale_override: int | None = None,
+):
     """Create and return a TenSEAL CKKS context from config file."""
-    cfg = yaml.safe_load(Path(config_path).read_text())["ckks"]
+    cfg = load_ckks_config(config_path)
 
     context = ts.context(
         ts.SCHEME_TYPE.CKKS,
         poly_modulus_degree=cfg["poly_modulus_degree"],
         coeff_mod_bit_sizes=cfg["coeff_mod_bit_sizes"],
     )
-    context.global_scale = cfg["global_scale"]
+    context.global_scale = global_scale_override or cfg["global_scale"]
 
     if cfg.get("use_galois_keys", False):
         context.generate_galois_keys()
