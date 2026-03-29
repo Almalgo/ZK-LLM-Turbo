@@ -1,6 +1,7 @@
 import base64
 import time
 import uuid
+from functools import lru_cache
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,6 +28,7 @@ _sessions: dict[str, SessionEntry] = {}
 _CONFIG_PATH = Path("server/config/server_config.yaml")
 
 
+@lru_cache(maxsize=1)
 def load_session_config(config_path: Path = _CONFIG_PATH) -> dict:
     """Load session-management settings from server config."""
     cfg = yaml.safe_load(config_path.read_text())

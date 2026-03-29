@@ -15,8 +15,10 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def clear_sessions():
     session_handler._sessions.clear()
+    session_handler.load_session_config.cache_clear()
     yield
     session_handler._sessions.clear()
+    session_handler.load_session_config.cache_clear()
 
 
 def _public_context_b64() -> str:
@@ -92,6 +94,33 @@ def test_cleanup_excess_sessions_evicts_lru():
     assert removed == 1
     assert "oldest" not in session_handler._sessions
     assert "newer" in session_handler._sessions
+
+
+def test_create_session_evicts_oldest_when_at_capacity(monkeypatch):
+    config = {
+        "max_sessions": 2,
+        "session_ttl_seconds": 3600,
+        "cleanup_interval_seconds": 60,
+    }
+    monkeypatch.setattr(session_handler.yaml, "safe_load", lambda _: {"session": config})
+    monkeypatch.setattr(session_handler.Path, "read_text", lambda self: "session: {}")
+
+    response1 = client.post("/api/session", json={"public_context_b64": _public_context_b64()})
+    response2 = client.post("/api/session", json={"public_context_b64": _public_context_b64()})
+    response3 = client.post("/api/session", json={"public_context_b64": _public_context_b64()})
+
+    assert response1.status_code == 200
+    assert response2.status_code == 200
+    assert response3.status_code == 200
+
+    first_id = response1.json()["session_id"]
+    second_id = response2.json()["session_id"]
+    third_id = response3.json()["session_id"]
+
+    assert len(session_handler._sessions) == 2
+    assert first_id not in session_handler._sessions
+    assert second_id in session_handler._sessions
+    assert third_id in session_handler._sessions
 
 
 def test_delete_session_endpoint():
