@@ -14,6 +14,15 @@ from common.logging_utils import get_logger
 logger = get_logger("server.he_ops")
 
 SLOT_COUNT = 4096  # poly_modulus_degree // 2
+POLY_SILU_COEFFS = (
+    0.0214210321,
+    0.5,
+    0.211331957,
+    0.0,
+    -0.00809983496,
+    0.0,
+    0.000144937819,
+)
 
 # Reuse thread pool across calls (SEAL releases GIL for C++ operations)
 _he_thread_pool = ThreadPoolExecutor(max_workers=4)
@@ -189,3 +198,37 @@ def compute_ffn_down(
 ) -> ts.CKKSVector:
     """Compute down projection (5632 → 2048, split input)."""
     return he_matmul_split_input(enc_vectors, weights["down_proj"], chunk_sizes)
+
+
+def poly_silu(
+    enc_vec: ts.CKKSVector,
+    coeffs: tuple[float, ...] = POLY_SILU_COEFFS,
+) -> ts.CKKSVector:
+    """Evaluate the SiLU polynomial approximation on an encrypted vector."""
+    x2 = enc_vec.square()
+    x4 = x2.square()
+    x6 = x4 * x2
+
+    result = enc_vec * coeffs[1]
+    result += coeffs[0]
+    result += x2 * coeffs[2]
+    result += x4 * coeffs[4]
+    result += x6 * coeffs[6]
+    return result
+
+
+def compute_ffn_merged(
+    enc_vector: ts.CKKSVector,
+    weights: dict,
+    chunk_sizes: list[int],
+    weight_lists: dict | None = None,
+    coeffs: tuple[float, ...] = POLY_SILU_COEFFS,
+) -> ts.CKKSVector:
+    """Compute gate -> poly SiLU -> multiply by up -> down projection in one server step."""
+    gate_up = compute_ffn_gate_up(enc_vector, weights, weight_lists=weight_lists)
+    activated_chunks = [poly_silu(part, coeffs=coeffs) for part in gate_up["gate_parts"]]
+    multiplied_chunks = [
+        activated * up
+        for activated, up in zip(activated_chunks, gate_up["up_parts"])
+    ]
+    return compute_ffn_down(multiplied_chunks, weights, chunk_sizes)

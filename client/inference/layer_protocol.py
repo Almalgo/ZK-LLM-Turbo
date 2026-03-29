@@ -32,6 +32,7 @@ from common.logging_utils import get_logger
 from client.inference.nonlinear_ops import (
     rms_norm,
     silu,
+    poly_silu,
     compute_attention_cached,
     apply_rotary_embeddings_at_positions,
 )
@@ -53,6 +54,8 @@ class EncryptedLayerProtocol:
         layer_endpoint: str,
         auth_token: str,
         model_config,
+        use_merged_ffn: bool = False,
+        use_poly_silu: bool = False,
     ):
         self.context = context
         self.session_id = session_id
@@ -60,6 +63,8 @@ class EncryptedLayerProtocol:
         self.layer_url = server_url + layer_endpoint
         self.auth_token = auth_token
         self.config = model_config
+        self.use_merged_ffn = use_merged_ffn
+        self.use_poly_silu = use_poly_silu
         self._kv_cache = {}  # layer_idx -> {"k": ndarray, "v": ndarray}
         self._round_metrics = []
 
@@ -323,35 +328,47 @@ class EncryptedLayerProtocol:
         num_chunks = len(chunk_sizes)
 
         enc_normed = [self._encrypt_vector(normed[t]) for t in range(seq_len)]
-        results = self._send_request(layer_idx, "ffn_gate_up", enc_normed)
-        # Server returns per-token: [gate_c0, gate_c1, up_c0, up_c1]
-        results_per_token = num_chunks * 2
+        if self.use_merged_ffn:
+            merged_results = self._send_request(
+                layer_idx,
+                "ffn_merged",
+                enc_normed,
+                chunk_sizes=chunk_sizes,
+            )
+            all_down = np.zeros((seq_len, hidden_dim), dtype=np.float32)
+            for t in range(seq_len):
+                all_down[t] = self._decrypt_vector(merged_results[t], hidden_dim)
+        else:
+            results = self._send_request(layer_idx, "ffn_gate_up", enc_normed)
+            # Server returns per-token: [gate_c0, gate_c1, up_c0, up_c1]
+            results_per_token = num_chunks * 2
 
-        all_gate_chunks = [np.zeros((seq_len, cs), dtype=np.float32) for cs in chunk_sizes]
-        all_up_chunks = [np.zeros((seq_len, cs), dtype=np.float32) for cs in chunk_sizes]
-        for t in range(seq_len):
-            base_idx = t * results_per_token
-            for i in range(num_chunks):
-                all_gate_chunks[i][t] = self._decrypt_vector(results[base_idx + i], chunk_sizes[i])
-                all_up_chunks[i][t] = self._decrypt_vector(results[base_idx + num_chunks + i], chunk_sizes[i])
+            all_gate_chunks = [np.zeros((seq_len, cs), dtype=np.float32) for cs in chunk_sizes]
+            all_up_chunks = [np.zeros((seq_len, cs), dtype=np.float32) for cs in chunk_sizes]
+            for t in range(seq_len):
+                base_idx = t * results_per_token
+                for i in range(num_chunks):
+                    all_gate_chunks[i][t] = self._decrypt_vector(results[base_idx + i], chunk_sizes[i])
+                    all_up_chunks[i][t] = self._decrypt_vector(results[base_idx + num_chunks + i], chunk_sizes[i])
 
-        all_gate = np.concatenate(all_gate_chunks, axis=-1)
-        all_up = np.concatenate(all_up_chunks, axis=-1)
-        ffn_hidden = silu(all_gate) * all_up
+            all_gate = np.concatenate(all_gate_chunks, axis=-1)
+            all_up = np.concatenate(all_up_chunks, axis=-1)
+            activation_fn = poly_silu if self.use_poly_silu else silu
+            ffn_hidden = activation_fn(all_gate) * all_up
 
-        # === Round 4: FFN Down (batched) ===
-        enc_all = []
-        for t in range(seq_len):
-            offset = 0
-            for cs in chunk_sizes:
-                chunk_data = ffn_hidden[t, offset : offset + cs]
-                enc_all.append(self._encrypt_vector(chunk_data))
-                offset += cs
-        results = self._send_request(layer_idx, "ffn_down", enc_all, chunk_sizes=chunk_sizes)
+            # === Round 4: FFN Down (batched) ===
+            enc_all = []
+            for t in range(seq_len):
+                offset = 0
+                for cs in chunk_sizes:
+                    chunk_data = ffn_hidden[t, offset : offset + cs]
+                    enc_all.append(self._encrypt_vector(chunk_data))
+                    offset += cs
+            results = self._send_request(layer_idx, "ffn_down", enc_all, chunk_sizes=chunk_sizes)
 
-        all_down = np.zeros((seq_len, hidden_dim), dtype=np.float32)
-        for t in range(seq_len):
-            all_down[t] = self._decrypt_vector(results[t], hidden_dim)
+            all_down = np.zeros((seq_len, hidden_dim), dtype=np.float32)
+            for t in range(seq_len):
+                all_down[t] = self._decrypt_vector(results[t], hidden_dim)
 
         hidden_states = residual + all_down
         return hidden_states

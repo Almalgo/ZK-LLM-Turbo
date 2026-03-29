@@ -159,6 +159,8 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
         layer_endpoint=server_cfg["layer_endpoint"],
         auth_token=server_cfg["auth_token"],
         model_config=model_config,
+        use_merged_ffn=client_cfg.get("inference", {}).get("use_merged_ffn", False),
+        use_poly_silu=client_cfg.get("inference", {}).get("use_poly_silu", False),
     )
 
     # Tokenize

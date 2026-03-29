@@ -300,6 +300,9 @@ Both tracks run in parallel. Phase 1 completes in ~2 weeks.
 
 ### T2.2 -- Polynomial SiLU Approximation + Round 3/4 Merge
 
+**Status update (2026-03-29): Phase A complete.**
+Client-side `poly_silu()` is now implemented and enabled as the default FFN activation approximation, with max approximation error below `0.1` on `[-5, 5]`. The merged-FFN server/client protocol path is implemented behind `use_merged_ffn`, but remains disabled until `T2.3` lands the deeper CKKS chain required to execute it safely.
+
 | | |
 |---|---|
 | **Why** | SiLU (`nonlinear_ops.py:21`) forces a client round-trip. Polynomial approximation enables server-side computation, merging rounds 3+4 (4->3 round-trips = 25% reduction per layer). |

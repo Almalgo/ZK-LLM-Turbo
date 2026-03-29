@@ -14,6 +14,7 @@ from server.inference.he_ops import (
     compute_o_projection,
     compute_ffn_gate_up,
     compute_ffn_down,
+    compute_ffn_merged,
 )
 
 logger = get_logger("server.inference")
@@ -26,7 +27,7 @@ _zstd_decompressor = zstd.ZstdDecompressor()
 class LayerRequest(BaseModel):
     session_id: str
     layer_idx: int
-    operation: str  # "qkv", "o_proj", "ffn_gate_up", "ffn_down"
+    operation: str  # "qkv", "o_proj", "ffn_gate_up", "ffn_down", "ffn_merged"
     encrypted_vectors_b64: list[str]
     chunk_sizes: list[int] | None = None  # for split-input operations
     pack_counts: list[int] | None = None  # informational only
@@ -113,6 +114,22 @@ async def process_layer(req: LayerRequest):
                 token_chunks = enc_vectors[i * num_chunks : (i + 1) * num_chunks]
                 down = compute_ffn_down(token_chunks, weights, req.chunk_sizes)
                 result_vectors.append(down)
+
+        elif req.operation == "ffn_merged":
+            if req.chunk_sizes is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="ffn_merged requires chunk_sizes",
+                )
+            result_vectors = [
+                compute_ffn_merged(
+                    enc_v,
+                    weights,
+                    req.chunk_sizes,
+                    weight_lists=weight_lists,
+                )
+                for enc_v in enc_vectors
+            ]
 
         else:
             raise HTTPException(
@@ -223,6 +240,18 @@ async def process_layer_binary(request: Request):
                 token_chunks = enc_vectors[i * num_chunks : (i + 1) * num_chunks]
                 down = compute_ffn_down(token_chunks, weights, chunk_sizes)
                 result_vectors.append(down)
+        elif operation == "ffn_merged":
+            if chunk_sizes is None:
+                raise HTTPException(status_code=400, detail="ffn_merged requires chunk_sizes")
+            result_vectors = [
+                compute_ffn_merged(
+                    enc_v,
+                    weights,
+                    chunk_sizes,
+                    weight_lists=weight_lists,
+                )
+                for enc_v in enc_vectors
+            ]
         else:
             raise HTTPException(status_code=400, detail=f"Unknown operation: {operation}")
 

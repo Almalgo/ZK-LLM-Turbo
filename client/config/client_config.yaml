@@ -11,3 +11,5 @@ inference:
   model_name: "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
   num_encrypted_layers: 1
   num_tokens_to_generate: 5
+  use_poly_silu: true
+  use_merged_ffn: false

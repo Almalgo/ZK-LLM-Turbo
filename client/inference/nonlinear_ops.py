@@ -6,6 +6,16 @@ where data is decrypted. They match PyTorch's LlamaRMSNorm, SiLU, and attention.
 
 import numpy as np
 
+POLY_SILU_COEFFS = (
+    0.0214210321,
+    0.5,
+    0.211331957,
+    0.0,
+    -0.00809983496,
+    0.0,
+    0.000144937819,
+)
+
 
 def rms_norm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-5) -> np.ndarray:
     """RMSNorm matching PyTorch's LlamaRMSNorm.
@@ -21,6 +31,18 @@ def rms_norm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-5) -> np.ndarray
 def silu(x: np.ndarray) -> np.ndarray:
     """SiLU activation: x * sigmoid(x)."""
     return x * (1.0 / (1.0 + np.exp(-x)))
+
+
+def poly_silu(
+    x: np.ndarray,
+    coeffs: tuple[float, ...] = POLY_SILU_COEFFS,
+) -> np.ndarray:
+    """Polynomial SiLU approximation evaluated with Horner's rule."""
+    x = np.asarray(x, dtype=np.float32)
+    result = np.full_like(x, coeffs[-1], dtype=np.float32)
+    for coeff in reversed(coeffs[:-1]):
+        result = result * x + np.float32(coeff)
+    return result
 
 
 def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:

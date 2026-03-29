@@ -7,6 +7,7 @@ from server.inference.he_ops import (
     he_matmul,
     he_matmul_split_output,
     he_matmul_split_input,
+    poly_silu,
     SLOT_COUNT,
 )
 
@@ -17,6 +18,19 @@ def ckks_context():
         ts.SCHEME_TYPE.CKKS,
         poly_modulus_degree=8192,
         coeff_mod_bit_sizes=[60, 40, 40, 60],
+    )
+    ctx.global_scale = 2**40
+    ctx.generate_galois_keys()
+    ctx.generate_relin_keys()
+    return ctx
+
+
+@pytest.fixture
+def deep_ckks_context():
+    ctx = ts.context(
+        ts.SCHEME_TYPE.CKKS,
+        poly_modulus_degree=16384,
+        coeff_mod_bit_sizes=[60, 40, 40, 40, 40, 40, 60],
     )
     ctx.global_scale = 2**40
     ctx.generate_galois_keys()
@@ -124,3 +138,21 @@ class TestHEMatmulSplitInput:
         actual = np.array(result.decrypt()[:dim_out], dtype=np.float32)
 
         np.testing.assert_allclose(actual, expected, atol=0.05)
+
+
+class TestPolySilu:
+    def test_poly_silu_matches_plaintext_approximation(self, deep_ckks_context):
+        x = np.linspace(-5.0, 5.0, 64, dtype=np.float32)
+        enc_x = ts.ckks_vector(deep_ckks_context, x.tolist())
+
+        enc_result = poly_silu(enc_x)
+        actual = np.array(enc_result.decrypt()[: len(x)], dtype=np.float32)
+        expected = (
+            0.0214210321
+            + 0.5 * x
+            + 0.211331957 * np.square(x)
+            - 0.00809983496 * np.power(x, 4)
+            + 0.000144937819 * np.power(x, 6)
+        ).astype(np.float32)
+
+        np.testing.assert_allclose(actual, expected, atol=0.1)

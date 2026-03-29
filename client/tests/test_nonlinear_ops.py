@@ -4,7 +4,13 @@ import pytest
 import numpy as np
 import torch
 import torch.nn as nn
-from client.inference.nonlinear_ops import rms_norm, silu, softmax, compute_attention
+from client.inference.nonlinear_ops import (
+    rms_norm,
+    silu,
+    poly_silu,
+    softmax,
+    compute_attention,
+)
 
 
 class TestRMSNorm:
@@ -42,6 +48,13 @@ class TestSiLU:
 
     def test_zero(self):
         assert silu(np.array([0.0]))[0] == pytest.approx(0.0)
+
+    def test_poly_silu_approximation_error(self):
+        x_np = np.linspace(-5.0, 5.0, 2001, dtype=np.float32)
+        approx = poly_silu(x_np)
+        exact = silu(x_np)
+        max_error = np.max(np.abs(approx - exact))
+        assert max_error < 0.1
 
 
 class TestSoftmax:
