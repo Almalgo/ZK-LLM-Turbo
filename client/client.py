@@ -10,6 +10,7 @@ Supports KV caching for fast incremental generation after the initial pass.
 
 import sys
 import argparse
+import asyncio
 import logging
 import time
 from dataclasses import dataclass
@@ -30,6 +31,11 @@ from client.model.tokenizer_loader import load_tokenizer, tokenize_prompt
 from client.model.embedding_extractor import extract_embeddings, get_model_components
 from client.encryption.ckks_context import create_ckks_context, serialize_public_context
 from client.inference.layer_protocol import EncryptedLayerProtocol
+from client.inference.pipeline import (
+    get_encrypted_layer_params,
+    run_encrypted_layers,
+    run_encrypted_layers_async,
+)
 from client.inference.nonlinear_ops import rms_norm
 
 logger = get_logger("client")
@@ -122,6 +128,7 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
         "total": 0.0,
     }
     total_start = time.perf_counter()
+    pipeline_enabled = False
 
     cid = str(uuid.uuid4())
     logger.info("Starting generation", extra={"extra": {
@@ -142,6 +149,11 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
     total_layers = model_config.num_hidden_layers  # 22 for TinyLlama
     num_encrypted_layers = min(num_encrypted_layers, total_layers)
     context = create_ckks_context()
+    encrypted_layer_params = get_encrypted_layer_params(
+        components,
+        model_config,
+        num_encrypted_layers,
+    )
     stats["model_loading"] = time.perf_counter() - t0
 
     # Setup server session
@@ -164,6 +176,7 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
         use_poly_silu=client_cfg.get("inference", {}).get("use_poly_silu", False),
         use_websocket=client_cfg.get("inference", {}).get("use_websocket", False),
     )
+    pipeline_enabled = client_cfg.get("inference", {}).get("use_async_pipeline", False)
 
     # Tokenize
     tokens = tokenize_prompt(prompt, tokenizer)
@@ -193,14 +206,21 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
 
             # --- Encrypted layers ---
             t0 = time.perf_counter()
-            for layer_idx in range(num_encrypted_layers):
-                layer = components["layers"][layer_idx]
-                input_ln_w = layer.input_layernorm.weight.detach().numpy()
-                post_attn_ln_w = layer.post_attention_layernorm.weight.detach().numpy()
-                eps = model_config.rms_norm_eps
-                hidden_states = protocol.process_layer(
-                    hidden_states, layer_idx, input_ln_w, post_attn_ln_w, eps,
-                    position_offset=position_offset,
+            if pipeline_enabled:
+                hidden_states = asyncio.run(
+                    run_encrypted_layers_async(
+                        hidden_states,
+                        protocol,
+                        encrypted_layer_params,
+                        position_offset,
+                    )
+                )
+            else:
+                hidden_states = run_encrypted_layers(
+                    hidden_states,
+                    protocol,
+                    encrypted_layer_params,
+                    position_offset,
                 )
             stats["encrypted"] += time.perf_counter() - t0
 

@@ -14,3 +14,4 @@ inference:
   use_poly_silu: true
   use_merged_ffn: true
   use_websocket: true
+  use_async_pipeline: true

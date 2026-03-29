@@ -402,6 +402,9 @@ Keep HTTP fallback for backward compatibility.
 
 ### T2.5 -- Async Client-Server Pipelining
 
+**Status update (2026-03-29): Implemented.**
+The client now has an async-capable encrypted-layer runner and an opt-in pipelined execution path that reuses pre-fetched encrypted-layer metadata and drives encrypted layer processing through `process_layer_async()`. The protocol remains dependency-correct and preserves a synchronous fallback.
+
 | | |
 |---|---|
 | **Why** | Overlap client decrypt/process for layer N-1 with server compute for layer N. Approaches `max(server_time, client_time)` instead of `sum(all)`. |

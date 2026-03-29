@@ -22,6 +22,7 @@ KV cache is maintained across generation steps for incremental inference.
 """
 
 import base64
+import asyncio
 import time
 import numpy as np
 import requests
@@ -424,3 +425,21 @@ class EncryptedLayerProtocol:
 
         hidden_states = residual + all_down
         return hidden_states
+
+    async def process_layer_async(
+        self,
+        hidden_states: np.ndarray,
+        layer_idx: int,
+        input_layernorm_weight: np.ndarray,
+        post_attn_layernorm_weight: np.ndarray,
+        eps: float,
+        position_offset: int = 0,
+    ) -> np.ndarray:
+        return self.process_layer(
+            hidden_states,
+            layer_idx,
+            input_layernorm_weight,
+            post_attn_layernorm_weight,
+            eps,
+            position_offset,
+        )
