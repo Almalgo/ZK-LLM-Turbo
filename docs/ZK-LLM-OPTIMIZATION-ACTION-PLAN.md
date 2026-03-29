@@ -464,6 +464,9 @@ Focused Phase 2 accuracy and transport checks passed, and the `N=16384` merged F
 
 ### T3.1 -- TenSEAL -> OpenFHE Migration
 
+**Status update (2026-03-29): Backend abstraction landed; OpenFHE blocked in current env.**
+Core runtime modules now use [`common/he_backend.py`](common/he_backend.py) instead of calling TenSEAL primitives directly. The active backend remains TenSEAL because the available `openfhe` wheel installs but fails to import in this environment (`ModuleNotFoundError: openfhe.openfhe`). See [T3.1 environment finding](T3.1-OPENFHE-ENV-FINDING.md).
+
 | | |
 |---|---|
 | **Why** | TenSEAL is CPU-only, no bootstrapping, no diagonal packing, limited maintenance since 2022. OpenFHE supports all of these plus GPU extensions. This is the **most critical Phase 3 prerequisite**. |

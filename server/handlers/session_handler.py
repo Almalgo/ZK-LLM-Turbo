@@ -5,10 +5,10 @@ from functools import lru_cache
 from dataclasses import dataclass
 from pathlib import Path
 
-import tenseal as ts
 import yaml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from common.he_backend import context_from_public_bytes
 from common.logging_utils import get_logger
 
 logger = get_logger("server.session")
@@ -17,7 +17,7 @@ router = APIRouter()
 
 @dataclass
 class SessionEntry:
-    context: ts.Context
+    context: object
     created_at: float
     last_accessed: float
 
@@ -106,7 +106,7 @@ async def create_session(req: SessionRequest):
         cleanup_expired_sessions(config["session_ttl_seconds"])
 
         ctx_bytes = base64.b64decode(req.public_context_b64)
-        context = ts.context_from(ctx_bytes)
+        context = context_from_public_bytes(ctx_bytes)
         session_id = str(uuid.uuid4())
         now = time.time()
         _sessions[session_id] = SessionEntry(
@@ -122,7 +122,7 @@ async def create_session(req: SessionRequest):
         raise HTTPException(status_code=400, detail=f"Invalid public context: {e}")
 
 
-def get_session(session_id: str) -> ts.Context:
+def get_session(session_id: str):
     """Retrieve the public context for a session."""
     entry = _sessions.get(session_id)
     if entry is None:

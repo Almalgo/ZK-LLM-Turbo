@@ -28,9 +28,9 @@ import numpy as np
 import requests
 import msgpack
 import zstandard as zstd
-import tenseal as ts
 from websockets.sync.client import connect
 from common.constants import SLOT_COUNT
+from common.he_backend import decrypt_vector, encrypt_vector, serialize_vector, vector_from_bytes
 from common.logging_utils import get_logger
 from client.inference.nonlinear_ops import (
     rms_norm,
@@ -49,7 +49,7 @@ _zstd_decompressor = zstd.ZstdDecompressor()
 class EncryptedLayerProtocol:
     def __init__(
         self,
-        context: ts.Context,
+        context,
         session_id: str,
         server_url: str,
         layer_endpoint: str,
@@ -120,11 +120,11 @@ class EncryptedLayerProtocol:
         """Return captured per-round transport metrics."""
         return list(self._round_metrics)
 
-    def _encrypt_vector(self, vec: np.ndarray) -> ts.CKKSVector:
-        return ts.ckks_vector(self.context, vec.tolist())
+    def _encrypt_vector(self, vec: np.ndarray):
+        return encrypt_vector(self.context, vec.tolist())
 
-    def _decrypt_vector(self, enc_vec: ts.CKKSVector, expected_len: int) -> np.ndarray:
-        dec = enc_vec.decrypt()
+    def _decrypt_vector(self, enc_vec, expected_len: int) -> np.ndarray:
+        dec = decrypt_vector(enc_vec)
         return np.array(dec[:expected_len], dtype=np.float32)
 
     def _pack_tokens(
@@ -132,7 +132,7 @@ class EncryptedLayerProtocol:
         vectors: list[np.ndarray],
         dim: int,
         max_pack: int = 2,
-    ) -> list[tuple[ts.CKKSVector, int]]:
+    ) -> list[tuple[object, int]]:
         """Pack multiple same-dimension vectors into one ciphertext when slots allow it."""
         if not vectors:
             return []
@@ -150,7 +150,7 @@ class EncryptedLayerProtocol:
 
     def _unpack_tokens(
         self,
-        enc_vec: ts.CKKSVector,
+        enc_vec,
         pack_count: int,
         dim: int,
     ) -> list[np.ndarray]:
@@ -161,33 +161,33 @@ class EncryptedLayerProtocol:
             for idx in range(pack_count)
         ]
 
-    def _serialize_vectors(self, vectors: list[ts.CKKSVector]) -> list[bytes]:
+    def _serialize_vectors(self, vectors: list[object]) -> list[bytes]:
         """Serialize and compress encrypted vectors with zstd."""
-        return [_zstd_compressor.compress(v.serialize()) for v in vectors]
+        return [_zstd_compressor.compress(serialize_vector(v)) for v in vectors]
 
-    def _deserialize_vectors(self, vectors_compressed: list[bytes]) -> list[ts.CKKSVector]:
+    def _deserialize_vectors(self, vectors_compressed: list[bytes]) -> list[object]:
         """Decompress and deserialize encrypted vectors."""
-        return [ts.ckks_vector_from(self.context, _zstd_decompressor.decompress(raw)) for raw in vectors_compressed]
+        return [vector_from_bytes(self.context, _zstd_decompressor.decompress(raw)) for raw in vectors_compressed]
 
-    def _serialize_vectors_b64(self, vectors: list[ts.CKKSVector]) -> list[str]:
+    def _serialize_vectors_b64(self, vectors: list[object]) -> list[str]:
         """Legacy base64 serialization for JSON fallback."""
-        return [base64.b64encode(v.serialize()).decode("utf-8") for v in vectors]
+        return [base64.b64encode(serialize_vector(v)).decode("utf-8") for v in vectors]
 
-    def _deserialize_vectors_b64(self, vectors_b64: list[str]) -> list[ts.CKKSVector]:
+    def _deserialize_vectors_b64(self, vectors_b64: list[str]) -> list[object]:
         """Legacy base64 deserialization for JSON fallback."""
         result = []
         for b64 in vectors_b64:
             raw = base64.b64decode(b64)
-            vec = ts.ckks_vector_from(self.context, raw)
+            vec = vector_from_bytes(self.context, raw)
             result.append(vec)
         return result
 
     def _send_request(
         self, layer_idx: int, operation: str,
-        enc_vectors: list[ts.CKKSVector],
+        enc_vectors: list[object],
         chunk_sizes: list[int] | None = None,
         pack_counts: list[int] | None = None,
-    ) -> list[ts.CKKSVector]:
+    ) -> list[object]:
         """Send encrypted vectors to server via msgpack binary transport.
 
         Falls back to JSON+base64 if the binary endpoint is unavailable.

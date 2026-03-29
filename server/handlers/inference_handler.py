@@ -3,9 +3,9 @@ from pydantic import BaseModel
 import base64
 import msgpack
 import zstandard as zstd
-import tenseal as ts
 import time
 import uuid
+from common.he_backend import serialize_vector, vector_from_bytes
 from common.logging_utils import get_logger
 from server.handlers.session_handler import get_session
 from server.model.weight_manager import get_layer_weights, get_layer_weight_lists
@@ -41,29 +41,29 @@ class LayerResponse(BaseModel):
 
 
 def _deserialize_vectors(
-    context: ts.Context, vectors_b64: list[str]
-) -> list[ts.CKKSVector]:
+    context, vectors_b64: list[str]
+) -> list[object]:
     """Deserialize base64-encoded encrypted vectors using the session's public context."""
     result = []
     for b64 in vectors_b64:
         raw = base64.b64decode(b64)
-        vec = ts.ckks_vector_from(context, raw)
+        vec = vector_from_bytes(context, raw)
         result.append(vec)
     return result
 
 
-def _serialize_vectors(vectors: list[ts.CKKSVector]) -> list[str]:
+def _serialize_vectors(vectors: list[object]) -> list[str]:
     """Serialize encrypted vectors to base64."""
-    return [base64.b64encode(v.serialize()).decode("utf-8") for v in vectors]
+    return [base64.b64encode(serialize_vector(v)).decode("utf-8") for v in vectors]
 
 
 def _dispatch_operation(
     operation: str,
-    enc_vectors: list[ts.CKKSVector],
+    enc_vectors: list[object],
     weights: dict,
     weight_lists: dict,
     chunk_sizes: list[int] | None,
-) -> list[ts.CKKSVector]:
+) -> list[object]:
     if operation == "qkv":
         result_vectors = []
         for enc_v in enc_vectors:
@@ -134,7 +134,7 @@ def _process_binary_payload(req_data: dict, cid: str) -> bytes:
 
     MAX_DECOMPRESSED_SIZE = 50_000_000  # 50MB per vector
     enc_vectors = [
-        ts.ckks_vector_from(context, _zstd_decompressor.decompress(raw, max_output_size=MAX_DECOMPRESSED_SIZE))
+        vector_from_bytes(context, _zstd_decompressor.decompress(raw, max_output_size=MAX_DECOMPRESSED_SIZE))
         for raw in encrypted_vectors_raw
     ]
 
@@ -149,7 +149,7 @@ def _process_binary_payload(req_data: dict, cid: str) -> bytes:
 
     result_vectors = _dispatch_operation(operation, enc_vectors, weights, weight_lists, chunk_sizes)
 
-    results_raw = [_zstd_compressor.compress(v.serialize()) for v in result_vectors]
+    results_raw = [_zstd_compressor.compress(serialize_vector(v)) for v in result_vectors]
     elapsed_ms = (time.perf_counter() - start) * 1000
 
     logger.info(

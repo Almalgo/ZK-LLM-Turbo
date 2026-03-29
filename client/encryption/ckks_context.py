@@ -1,6 +1,8 @@
-import tenseal as ts
 import yaml
 from pathlib import Path
+
+from common.he_backend import create_context as create_backend_context
+from common.he_backend import serialize_public_context as serialize_backend_public_context
 
 
 def load_ckks_config(config_path: str = "client/config/client_config.yaml") -> dict:
@@ -15,32 +17,22 @@ def create_ckks_context(
     """Create and return a TenSEAL CKKS context from config file."""
     cfg = load_ckks_config(config_path)
 
-    context = ts.context(
-        ts.SCHEME_TYPE.CKKS,
+    return create_backend_context(
         poly_modulus_degree=cfg["poly_modulus_degree"],
         coeff_mod_bit_sizes=cfg["coeff_mod_bit_sizes"],
+        global_scale=(
+            global_scale_override if global_scale_override is not None else cfg["global_scale"]
+        ),
+        use_galois_keys=cfg.get("use_galois_keys", False),
+        use_relin_keys=cfg.get("use_relin_keys", False),
     )
-    context.global_scale = (
-        global_scale_override if global_scale_override is not None else cfg["global_scale"]
-    )
-
-    if cfg.get("use_galois_keys", False):
-        context.generate_galois_keys()
-    if cfg.get("use_relin_keys", False):
-        context.generate_relin_keys()
-
-    return context
 
 
-def serialize_public_context(context: ts.Context) -> bytes:
+def serialize_public_context(context) -> bytes:
     """Serialize context without secret key (public context only).
 
     The resulting bytes contain the public key, galois keys, and relin keys,
     but NOT the secret key. The server can use this to perform HE operations
     but cannot decrypt any ciphertexts.
     """
-    return context.serialize(
-        save_secret_key=False,
-        save_galois_keys=True,
-        save_relin_keys=True,
-    )
+    return serialize_backend_public_context(context)
