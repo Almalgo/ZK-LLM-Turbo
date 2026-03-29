@@ -428,6 +428,9 @@ The client now has an async-capable encrypted-layer runner and an opt-in pipelin
 
 ### T2.6 -- Phase 2 Accuracy Gate
 
+**Status update (2026-03-29): Conditional go.**
+Focused Phase 2 accuracy and transport checks passed, and the `N=16384` merged FFN path is numerically correct relative to its quadratic HE target. The open quality risk is that the merged HE path uses a lower-accuracy quadratic SiLU approximation than the degree-6 client reference. See [T2.6 gate report](T2.6-PHASE-2-ACCURACY-GATE.md).
+
 | | |
 |---|---|
 | **Why** | Validate all Phase 2 changes maintain acceptable accuracy before Phase 3's invasive migration. |
