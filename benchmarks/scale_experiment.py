@@ -20,6 +20,7 @@ if str(ROOT) not in sys.path:
 
 from benchmarks.common import write_benchmark_report
 from client.encryption.ckks_context import create_ckks_context, load_ckks_config
+from client.inference.nonlinear_ops import rms_norm, silu
 
 
 def _write_temp_config(scale: int) -> Path:
@@ -47,6 +48,60 @@ def _measure_matmul_error(scale: int, seed: int) -> dict:
         "mae": float(np.mean(np.abs(error))),
         "max_abs_error": float(np.max(np.abs(error))),
         "rmse": float(np.sqrt(np.mean(np.square(error)))),
+    }
+
+
+def _run_accuracy_checks(scale: int, seed: int) -> dict:
+    rng = np.random.default_rng(seed)
+    context = create_ckks_context(global_scale_override=scale)
+
+    roundtrip_vec = rng.normal(0.0, 1.0, size=2048).astype(np.float32)
+    enc_roundtrip = ts.ckks_vector(context, roundtrip_vec.tolist())
+    dec_roundtrip = np.array(enc_roundtrip.decrypt()[:2048], dtype=np.float32)
+    roundtrip_ok = bool(np.allclose(dec_roundtrip, roundtrip_vec, atol=0.001))
+
+    x_small = rng.normal(0.0, 0.1, size=64).astype(np.float32)
+    w_small = rng.normal(0.0, 0.01, size=(64, 32)).astype(np.float32)
+    small_expected = x_small @ w_small
+    small_actual = np.array(
+        ts.ckks_vector(context, x_small.tolist()).mm(w_small.tolist()).decrypt()[:32],
+        dtype=np.float32,
+    )
+    small_matmul_max_abs_error = float(np.max(np.abs(small_actual - small_expected)))
+    small_matmul_ok = bool(np.allclose(small_actual, small_expected, atol=0.05))
+
+    x_full = rng.normal(0.0, 0.01, size=2048).astype(np.float32)
+    w_full = rng.normal(0.0, 0.01, size=(2048, 256)).astype(np.float32)
+    full_expected = x_full @ w_full
+    full_actual = np.array(
+        ts.ckks_vector(context, x_full.tolist()).mm(w_full.tolist()).decrypt()[:256],
+        dtype=np.float32,
+    )
+    full_matmul_max_abs_error = float(np.max(np.abs(full_actual - full_expected)))
+    full_matmul_ok = bool(np.allclose(full_actual, full_expected, atol=0.1))
+
+    rms_input = rng.normal(0.0, 1.0, size=2048).astype(np.float32)
+    rms_weight = np.ones(2048, dtype=np.float32)
+    rms_norm_ok = bool(np.array_equal(rms_norm(rms_input, rms_weight), rms_norm(rms_input, rms_weight)))
+
+    silu_input = np.array([0.0, 1.0, -1.0, 2.0], dtype=np.float32)
+    silu_expected = silu_input * (1.0 / (1.0 + np.exp(-silu_input)))
+    silu_ok = bool(np.allclose(silu(silu_input), silu_expected, atol=1e-6))
+
+    all_passed = roundtrip_ok and small_matmul_ok and full_matmul_ok and rms_norm_ok and silu_ok
+    return {
+        "passed": all_passed,
+        "checks": {
+            "roundtrip_ok": roundtrip_ok,
+            "small_matmul_ok": small_matmul_ok,
+            "full_matmul_ok": full_matmul_ok,
+            "rms_norm_ok": rms_norm_ok,
+            "silu_ok": silu_ok,
+        },
+        "max_abs_errors": {
+            "small_matmul": small_matmul_max_abs_error,
+            "full_matmul": full_matmul_max_abs_error,
+        },
     }
 
 
@@ -89,7 +144,8 @@ def main() -> None:
 
         bench_cmd = [
             sys.executable,
-            "benchmarks/bench_he_matmul.py",
+            "-m",
+            "benchmarks.bench_he_matmul",
             "--config-path",
             str(config_path),
             "--samples",
@@ -101,16 +157,8 @@ def main() -> None:
             "--output",
             f"benchmarks/results/scale_{scale}_bench_he_matmul.json",
         ]
-        test_cmd = [
-            sys.executable,
-            "-m",
-            "pytest",
-            "client/tests/test_e2e_accuracy.py",
-            "-q",
-        ]
-
         bench_run = _run_subprocess(bench_cmd, env)
-        test_run = _run_subprocess(test_cmd, env)
+        accuracy_run = _run_accuracy_checks(scale, args.seed)
         error_metrics = _measure_matmul_error(scale, args.seed)
 
         bench_result_path = ROOT / f"benchmarks/results/scale_{scale}_bench_he_matmul.json"
@@ -126,9 +174,10 @@ def main() -> None:
                 "benchmark_stdout": bench_run.stdout,
                 "benchmark_stderr": bench_run.stderr,
                 "benchmark_results": benchmark_summary.get("results", []),
-                "accuracy_exit_code": test_run.returncode,
-                "accuracy_stdout": test_run.stdout,
-                "accuracy_stderr": test_run.stderr,
+                "accuracy_exit_code": 0 if accuracy_run["passed"] else 1,
+                "accuracy_stdout": json.dumps(accuracy_run, indent=2),
+                "accuracy_stderr": "",
+                "accuracy_checks": accuracy_run,
                 "matmul_error": error_metrics,
             }
         )

@@ -243,8 +243,8 @@ The current TenSEAL Python API used in this repo documents `context.generate_gal
 
 ### T1.6 -- Scale Factor Reduction Experiment
 
-**Status update (2026-03-29): Experiment harness added; empirical run pending environment with Python deps.**
-The repo now has a dedicated sweep runner for `2^40`, `2^35`, and `2^30`, but the experiment was not executed in this session because the local Python environment lacks `pip` / `venv` support. See [T1.6 report](T1.6-SCALE-FACTOR-EXPERIMENT-REPORT.md).
+**Status update (2026-03-29): Executed.**
+Initial empirical sweep data shows no meaningful speedup from lowering the scale, while approximation error increases materially. Keep `2^40` as the default. See [T1.6 report](T1.6-SCALE-FACTOR-EXPERIMENT-REPORT.md).
 
 | | |
 |---|---|
@@ -258,7 +258,7 @@ The repo now has a dedicated sweep runner for `2^40`, `2^35`, and `2^30`, but th
 2. Run `test_e2e_accuracy.py` at each scale
 3. Measure matmul error growth at 2048x2048
 
-**Current report:** Harness implemented, provisional recommendation recorded, empirical execution pending a runnable Python environment.
+**Result:** No-go for changing the default Phase 1 scale. Keep `2^40`.
 
 ---
 

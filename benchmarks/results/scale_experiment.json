@@ -1,0 +1,266 @@
+{
+  "timestamp": "2026-03-29T13:28:10.653686+00:00",
+  "git_sha": "ab00d66516b1efdcf7eed6080fafab0c8abc6521",
+  "ckks_params": {
+    "poly_modulus_degree": 8192,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      60
+    ],
+    "global_scale": "varies",
+    "use_galois_keys": true,
+    "use_relin_keys": true
+  },
+  "results": [],
+  "metadata": {
+    "experiment": "T1.6_scale_factor_reduction",
+    "scales": [
+      1099511627776,
+      34359738368,
+      1073741824
+    ],
+    "samples": 1,
+    "seed": 0,
+    "runs": [
+      {
+        "scale": 1099511627776,
+        "scale_power": 40,
+        "benchmark_exit_code": 0,
+        "benchmark_stdout": "Wrote benchmarks/results/scale_1099511627776_bench_he_matmul.json\nhe_matmul_2048x2048: mean=6491.79ms std=0.0ms\nhe_matmul_2048x256: mean=6307.167ms std=0.0ms\nhe_matmul_split_output_2048x5632: mean=13118.98ms std=0.0ms\nhe_matmul_split_input_5632x2048: mean=18293.436ms std=0.0ms\n",
+        "benchmark_stderr": "",
+        "benchmark_results": [
+          {
+            "name": "he_matmul_2048x2048",
+            "mean_ms": 6491.79,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              6491.79
+            ]
+          },
+          {
+            "name": "he_matmul_2048x256",
+            "mean_ms": 6307.167,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              6307.167
+            ]
+          },
+          {
+            "name": "he_matmul_split_output_2048x5632",
+            "mean_ms": 13118.98,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              13118.98
+            ],
+            "metadata": {
+              "chunk_sizes": [
+                4096,
+                1536
+              ]
+            }
+          },
+          {
+            "name": "he_matmul_split_input_5632x2048",
+            "mean_ms": 18293.436,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              18293.436
+            ],
+            "metadata": {
+              "chunk_sizes": [
+                4096,
+                1536
+              ]
+            }
+          }
+        ],
+        "accuracy_exit_code": 0,
+        "accuracy_stdout": "{\n  \"passed\": true,\n  \"checks\": {\n    \"roundtrip_ok\": true,\n    \"small_matmul_ok\": true,\n    \"full_matmul_ok\": true,\n    \"rms_norm_ok\": true,\n    \"silu_ok\": true\n  },\n  \"max_abs_errors\": {\n    \"small_matmul\": 3.725290298461914e-09,\n    \"full_matmul\": 6.51925802230835e-09\n  }\n}",
+        "accuracy_stderr": "",
+        "accuracy_checks": {
+          "passed": true,
+          "checks": {
+            "roundtrip_ok": true,
+            "small_matmul_ok": true,
+            "full_matmul_ok": true,
+            "rms_norm_ok": true,
+            "silu_ok": true
+          },
+          "max_abs_errors": {
+            "small_matmul": 3.725290298461914e-09,
+            "full_matmul": 6.51925802230835e-09
+          }
+        },
+        "matmul_error": {
+          "mae": 1.4821773808293415e-09,
+          "max_abs_error": 1.30385160446167e-08,
+          "rmse": 1.9817747443084954e-09
+        }
+      },
+      {
+        "scale": 34359738368,
+        "scale_power": 35,
+        "benchmark_exit_code": 0,
+        "benchmark_stdout": "Wrote benchmarks/results/scale_34359738368_bench_he_matmul.json\nhe_matmul_2048x2048: mean=6479.622ms std=0.0ms\nhe_matmul_2048x256: mean=6147.47ms std=0.0ms\nhe_matmul_split_output_2048x5632: mean=13606.368ms std=0.0ms\nhe_matmul_split_input_5632x2048: mean=18693.694ms std=0.0ms\n",
+        "benchmark_stderr": "",
+        "benchmark_results": [
+          {
+            "name": "he_matmul_2048x2048",
+            "mean_ms": 6479.622,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              6479.622
+            ]
+          },
+          {
+            "name": "he_matmul_2048x256",
+            "mean_ms": 6147.47,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              6147.47
+            ]
+          },
+          {
+            "name": "he_matmul_split_output_2048x5632",
+            "mean_ms": 13606.368,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              13606.368
+            ],
+            "metadata": {
+              "chunk_sizes": [
+                4096,
+                1536
+              ]
+            }
+          },
+          {
+            "name": "he_matmul_split_input_5632x2048",
+            "mean_ms": 18693.694,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              18693.694
+            ],
+            "metadata": {
+              "chunk_sizes": [
+                4096,
+                1536
+              ]
+            }
+          }
+        ],
+        "accuracy_exit_code": 0,
+        "accuracy_stdout": "{\n  \"passed\": true,\n  \"checks\": {\n    \"roundtrip_ok\": true,\n    \"small_matmul_ok\": true,\n    \"full_matmul_ok\": true,\n    \"rms_norm_ok\": true,\n    \"silu_ok\": true\n  },\n  \"max_abs_errors\": {\n    \"small_matmul\": 0.020081061869859695,\n    \"full_matmul\": 0.01185929961502552\n  }\n}",
+        "accuracy_stderr": "",
+        "accuracy_checks": {
+          "passed": true,
+          "checks": {
+            "roundtrip_ok": true,
+            "small_matmul_ok": true,
+            "full_matmul_ok": true,
+            "rms_norm_ok": true,
+            "silu_ok": true
+          },
+          "max_abs_errors": {
+            "small_matmul": 0.020081061869859695,
+            "full_matmul": 0.01185929961502552
+          }
+        },
+        "matmul_error": {
+          "mae": 0.0035201366990804672,
+          "max_abs_error": 0.015979928895831108,
+          "rmse": 0.00437611248344183
+        }
+      },
+      {
+        "scale": 1073741824,
+        "scale_power": 30,
+        "benchmark_exit_code": 0,
+        "benchmark_stdout": "Wrote benchmarks/results/scale_1073741824_bench_he_matmul.json\nhe_matmul_2048x2048: mean=6554.057ms std=0.0ms\nhe_matmul_2048x256: mean=6234.206ms std=0.0ms\nhe_matmul_split_output_2048x5632: mean=13237.925ms std=0.0ms\nhe_matmul_split_input_5632x2048: mean=18487.955ms std=0.0ms\n",
+        "benchmark_stderr": "",
+        "benchmark_results": [
+          {
+            "name": "he_matmul_2048x2048",
+            "mean_ms": 6554.057,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              6554.057
+            ]
+          },
+          {
+            "name": "he_matmul_2048x256",
+            "mean_ms": 6234.206,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              6234.206
+            ]
+          },
+          {
+            "name": "he_matmul_split_output_2048x5632",
+            "mean_ms": 13237.925,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              13237.925
+            ],
+            "metadata": {
+              "chunk_sizes": [
+                4096,
+                1536
+              ]
+            }
+          },
+          {
+            "name": "he_matmul_split_input_5632x2048",
+            "mean_ms": 18487.955,
+            "std_ms": 0.0,
+            "samples": 1,
+            "raw_samples_ms": [
+              18487.955
+            ],
+            "metadata": {
+              "chunk_sizes": [
+                4096,
+                1536
+              ]
+            }
+          }
+        ],
+        "accuracy_exit_code": 0,
+        "accuracy_stdout": "{\n  \"passed\": true,\n  \"checks\": {\n    \"roundtrip_ok\": true,\n    \"small_matmul_ok\": true,\n    \"full_matmul_ok\": true,\n    \"rms_norm_ok\": true,\n    \"silu_ok\": true\n  },\n  \"max_abs_errors\": {\n    \"small_matmul\": 0.02071123570203781,\n    \"full_matmul\": 0.012230392545461655\n  }\n}",
+        "accuracy_stderr": "",
+        "accuracy_checks": {
+          "passed": true,
+          "checks": {
+            "roundtrip_ok": true,
+            "small_matmul_ok": true,
+            "full_matmul_ok": true,
+            "rms_norm_ok": true,
+            "silu_ok": true
+          },
+          "max_abs_errors": {
+            "small_matmul": 0.02071123570203781,
+            "full_matmul": 0.012230392545461655
+          }
+        },
+        "matmul_error": {
+          "mae": 0.0036301417276263237,
+          "max_abs_error": 0.016478287056088448,
+          "rmse": 0.004512852057814598
+        }
+      }
+    ]
+  }
+}
