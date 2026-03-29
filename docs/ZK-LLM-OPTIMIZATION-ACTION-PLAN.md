@@ -207,6 +207,9 @@ The original Phase 1 assumption was incorrect for the current TenSEAL backend. C
 
 ### T1.4 -- Selective Galois Keys (Investigation Only)
 
+**Status update (2026-03-29): Investigated, defer to T3.1 / OpenFHE.**
+The current TenSEAL Python API used in this repo documents `context.generate_galois_keys()` but does not provide a documented selective-steps path that we can safely adopt in Phase 1. See [T1.4 finding](T1.4-SELECTIVE-GALOIS-KEYS-FINDING.md).
+
 | | |
 |---|---|
 | **Why** | Spike task. Research doc claims 50-70% key reduction -- actually ~15% at N=8192. Investigate TenSEAL API for `generate_galois_keys(steps=[...])`. If unsupported, defer to T3.1 (OpenFHE has full support). |
@@ -216,7 +219,7 @@ The original Phase 1 assumption was incorrect for the current TenSEAL backend. C
 
 **File:** `client/encryption/ckks_context.py:17`
 
-**Acceptance:** Written finding -- either a working implementation or documented "defer to OpenFHE."
+**Result:** No safe/documented TenSEAL Phase 1 implementation found. Defer to T3.1 / OpenFHE or lower-level SEAL access.
 
 ---
 
