@@ -3,7 +3,9 @@
 import pytest
 import numpy as np
 import tenseal as ts
+from common.constants import COEFF_MOD_BIT_SIZES, GLOBAL_SCALE, POLY_MODULUS_DEGREE
 from server.inference.he_ops import (
+    compute_ffn_merged,
     he_matmul,
     he_matmul_split_output,
     he_matmul_split_input,
@@ -14,25 +16,21 @@ from server.inference.he_ops import (
 
 @pytest.fixture
 def ckks_context():
-    ctx = ts.context(
-        ts.SCHEME_TYPE.CKKS,
-        poly_modulus_degree=8192,
-        coeff_mod_bit_sizes=[60, 40, 40, 60],
-    )
-    ctx.global_scale = 2**40
-    ctx.generate_galois_keys()
-    ctx.generate_relin_keys()
-    return ctx
+    return _make_context()
 
 
 @pytest.fixture
 def deep_ckks_context():
+    return _make_context()
+
+
+def _make_context():
     ctx = ts.context(
         ts.SCHEME_TYPE.CKKS,
-        poly_modulus_degree=16384,
-        coeff_mod_bit_sizes=[60, 40, 40, 40, 40, 40, 60],
+        poly_modulus_degree=POLY_MODULUS_DEGREE,
+        coeff_mod_bit_sizes=COEFF_MOD_BIT_SIZES,
     )
-    ctx.global_scale = 2**40
+    ctx.global_scale = GLOBAL_SCALE
     ctx.generate_galois_keys()
     ctx.generate_relin_keys()
     return ctx
@@ -148,11 +146,41 @@ class TestPolySilu:
         enc_result = poly_silu(enc_x)
         actual = np.array(enc_result.decrypt()[: len(x)], dtype=np.float32)
         expected = (
-            0.0214210321
+            0.23970363
             + 0.5 * x
-            + 0.211331957 * np.square(x)
-            - 0.00809983496 * np.power(x, 4)
-            + 0.000144937819 * np.power(x, 6)
+            + 0.10245962 * np.square(x)
         ).astype(np.float32)
 
         np.testing.assert_allclose(actual, expected, atol=0.1)
+
+    def test_compute_ffn_merged_matches_plaintext_pipeline(self, deep_ckks_context):
+        dim_in = 8
+        dim_ffn = 12
+        dim_out = 6
+        x = np.random.randn(dim_in).astype(np.float32) * 0.1
+        gate_w = np.random.randn(dim_in, dim_ffn).astype(np.float32) * 0.1
+        up_w = np.random.randn(dim_in, dim_ffn).astype(np.float32) * 0.1
+        down_w = np.random.randn(dim_ffn, dim_out).astype(np.float32) * 0.1
+
+        gate = x @ gate_w
+        up = x @ up_w
+        activated = (
+            0.23970363
+            + 0.5 * gate
+            + 0.10245962 * np.square(gate)
+        ).astype(np.float32)
+        expected = activated * up @ down_w
+
+        enc_x = ts.ckks_vector(deep_ckks_context, x.tolist())
+        actual_enc = compute_ffn_merged(
+            enc_x,
+            {
+                "gate_proj": gate_w,
+                "up_proj": up_w,
+                "down_proj": down_w,
+            },
+            [dim_ffn],
+        )
+        actual = np.array(actual_enc.decrypt()[:dim_out], dtype=np.float32)
+
+        np.testing.assert_allclose(actual, expected, atol=0.2)

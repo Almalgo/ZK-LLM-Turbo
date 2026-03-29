@@ -1,0 +1,21 @@
+import numpy as np
+
+from server.model import weight_manager
+
+
+def test_weight_lists_do_not_split_outputs_that_fit_slots(monkeypatch):
+    weight_manager._layer_weight_lists.clear()
+    weight_manager._layer_weight_cache.clear()
+
+    fake_weights = {
+        "gate_proj": np.zeros((2048, 5632), dtype=np.float32),
+        "down_proj": np.zeros((5632, 2048), dtype=np.float32),
+    }
+    monkeypatch.setattr(weight_manager, "get_layer_weights", lambda layer_idx: fake_weights)
+
+    weight_lists = weight_manager.get_layer_weight_lists(0)
+
+    assert isinstance(weight_lists["gate_proj"], list)
+    assert isinstance(weight_lists["gate_proj"][0], list)
+    assert len(weight_lists["gate_proj"]) == 2048
+    assert len(weight_lists["gate_proj"][0]) == 5632

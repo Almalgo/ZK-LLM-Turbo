@@ -342,6 +342,9 @@ This **exceeds** N=8192 capacity. Must be phased:
 
 ### T2.3 -- Deeper CKKS Parameters (N=16384)
 
+**Status update (2026-03-29): Implemented.**
+The repo now uses `poly_modulus_degree=16384` with a depth-5 coefficient chain and a shared `common/constants.py` slot-count constant. FFN intermediate width (`5632`) now fits in a single ciphertext, and the merged FFN path is enabled by default. The merged HE path currently uses a quadratic SiLU approximation to stay within the available scale budget.
+
 | | |
 |---|---|
 | **Why** | Doubles slots to 8192, enables depth-5 chain for merged FFN (T2.2). FFN intermediate (5632) now fits in 1 ciphertext (5632 < 8192), **eliminating all split-output/split-input logic**. |

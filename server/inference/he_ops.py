@@ -1,27 +1,17 @@
-"""Homomorphic encryption operations for server-side inference.
-
-Key constraint: poly_modulus_degree=8192 → 4096 CKKS slots.
-Hidden dim (2048) fits in one ciphertext.
-FFN intermediate dim (5632) does NOT fit → must split across 2 ciphertexts.
-"""
+"""Homomorphic encryption operations for server-side inference."""
 
 from concurrent.futures import ThreadPoolExecutor
 import time
 import numpy as np
 import tenseal as ts
+from common.constants import SLOT_COUNT
 from common.logging_utils import get_logger
 
 logger = get_logger("server.he_ops")
-
-SLOT_COUNT = 4096  # poly_modulus_degree // 2
-POLY_SILU_COEFFS = (
-    0.0214210321,
+HE_POLY_SILU_COEFFS = (
+    0.23970363,
     0.5,
-    0.211331957,
-    0.0,
-    -0.00809983496,
-    0.0,
-    0.000144937819,
+    0.10245962,
 )
 
 # Reuse thread pool across calls (SEAL releases GIL for C++ operations)
@@ -202,18 +192,14 @@ def compute_ffn_down(
 
 def poly_silu(
     enc_vec: ts.CKKSVector,
-    coeffs: tuple[float, ...] = POLY_SILU_COEFFS,
+    coeffs: tuple[float, ...] = HE_POLY_SILU_COEFFS,
 ) -> ts.CKKSVector:
-    """Evaluate the SiLU polynomial approximation on an encrypted vector."""
+    """Evaluate the HE-safe SiLU polynomial approximation on an encrypted vector."""
     x2 = enc_vec.square()
-    x4 = x2.square()
-    x6 = x4 * x2
 
     result = enc_vec * coeffs[1]
     result += coeffs[0]
     result += x2 * coeffs[2]
-    result += x4 * coeffs[4]
-    result += x6 * coeffs[6]
     return result
 
 
@@ -222,7 +208,7 @@ def compute_ffn_merged(
     weights: dict,
     chunk_sizes: list[int],
     weight_lists: dict | None = None,
-    coeffs: tuple[float, ...] = POLY_SILU_COEFFS,
+    coeffs: tuple[float, ...] = HE_POLY_SILU_COEFFS,
 ) -> ts.CKKSVector:
     """Compute gate -> poly SiLU -> multiply by up -> down projection in one server step."""
     gate_up = compute_ffn_gate_up(enc_vector, weights, weight_lists=weight_lists)

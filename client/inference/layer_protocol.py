@@ -28,6 +28,7 @@ import requests
 import msgpack
 import zstandard as zstd
 import tenseal as ts
+from common.constants import SLOT_COUNT
 from common.logging_utils import get_logger
 from client.inference.nonlinear_ops import (
     rms_norm,
@@ -38,8 +39,6 @@ from client.inference.nonlinear_ops import (
 )
 
 logger = get_logger("client.protocol")
-
-SLOT_COUNT = 4096  # poly_modulus_degree // 2
 
 _zstd_compressor = zstd.ZstdCompressor(level=3)
 _zstd_decompressor = zstd.ZstdDecompressor()

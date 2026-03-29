@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from transformers import AutoModelForCausalLM
+from common.constants import SLOT_COUNT
 from common.logging_utils import get_logger
 
 logger = get_logger("server.weights")
@@ -60,9 +61,6 @@ def get_layer_weights(layer_idx: int) -> dict[str, np.ndarray]:
     _layer_weight_cache[layer_idx] = weights
     logger.info("Layer weights cached", extra={"extra": {"layer_idx": layer_idx}})
     return weights
-
-
-SLOT_COUNT = 4096  # poly_modulus_degree // 2
 
 
 def get_layer_weight_lists(layer_idx: int) -> dict[str, list]:

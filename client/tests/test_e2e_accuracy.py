@@ -5,6 +5,7 @@ import os
 import pytest
 import numpy as np
 import tenseal as ts
+from common.constants import COEFF_MOD_BIT_SIZES, POLY_MODULUS_DEGREE
 from client.inference.nonlinear_ops import rms_norm, silu, softmax
 
 
@@ -15,8 +16,8 @@ class TestEncryptedAccuracy:
         configured_scale = int(os.getenv("ZKLLM_CKKS_SCALE", str(2**40)))
         self.context = ts.context(
             ts.SCHEME_TYPE.CKKS,
-            poly_modulus_degree=8192,
-            coeff_mod_bit_sizes=[60, 40, 40, 60],
+            poly_modulus_degree=POLY_MODULUS_DEGREE,
+            coeff_mod_bit_sizes=COEFF_MOD_BIT_SIZES,
         )
         self.context.global_scale = configured_scale
         self.context.generate_galois_keys()
