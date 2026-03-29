@@ -29,6 +29,7 @@ class LayerRequest(BaseModel):
     operation: str  # "qkv", "o_proj", "ffn_gate_up", "ffn_down"
     encrypted_vectors_b64: list[str]
     chunk_sizes: list[int] | None = None  # for split-input operations
+    pack_counts: list[int] | None = None  # informational only
 
 
 class LayerResponse(BaseModel):
@@ -76,6 +77,7 @@ async def process_layer(req: LayerRequest):
             extra={"extra": {
                 "cid": cid, "layer": req.layer_idx,
                 "op": req.operation, "num_vectors": len(enc_vectors),
+                "pack_counts": req.pack_counts,
             }},
         )
 
@@ -164,6 +166,7 @@ async def process_layer_binary(request: Request):
         operation = req_data["operation"]
         encrypted_vectors_raw = req_data["encrypted_vectors"]
         chunk_sizes = req_data.get("chunk_sizes")
+        pack_counts = req_data.get("pack_counts")
 
         # --- Input validation ---
         if not isinstance(layer_idx, int) or layer_idx < 0:
@@ -191,6 +194,7 @@ async def process_layer_binary(request: Request):
             extra={"extra": {
                 "cid": cid, "layer": layer_idx,
                 "op": operation, "num_vectors": len(enc_vectors),
+                "pack_counts": pack_counts,
             }},
         )
 

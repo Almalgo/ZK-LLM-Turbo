@@ -85,6 +85,40 @@ class EncryptedLayerProtocol:
         dec = enc_vec.decrypt()
         return np.array(dec[:expected_len], dtype=np.float32)
 
+    def _pack_tokens(
+        self,
+        vectors: list[np.ndarray],
+        dim: int,
+        max_pack: int = 2,
+    ) -> list[tuple[ts.CKKSVector, int]]:
+        """Pack multiple same-dimension vectors into one ciphertext when slots allow it."""
+        if not vectors:
+            return []
+
+        pack_width = max(1, min(max_pack, SLOT_COUNT // dim))
+        packed = []
+        for start in range(0, len(vectors), pack_width):
+            chunk = vectors[start : start + pack_width]
+            pack_count = len(chunk)
+            padded = np.zeros(pack_width * dim, dtype=np.float32)
+            for idx, vec in enumerate(chunk):
+                padded[idx * dim : (idx + 1) * dim] = vec[:dim]
+            packed.append((self._encrypt_vector(padded), pack_count))
+        return packed
+
+    def _unpack_tokens(
+        self,
+        enc_vec: ts.CKKSVector,
+        pack_count: int,
+        dim: int,
+    ) -> list[np.ndarray]:
+        """Recover packed plaintext vectors from one decrypted ciphertext."""
+        dec = np.array(enc_vec.decrypt(), dtype=np.float32)
+        return [
+            dec[idx * dim : (idx + 1) * dim].astype(np.float32)
+            for idx in range(pack_count)
+        ]
+
     def _serialize_vectors(self, vectors: list[ts.CKKSVector]) -> list[bytes]:
         """Serialize and compress encrypted vectors with zstd."""
         return [_zstd_compressor.compress(v.serialize()) for v in vectors]
@@ -110,6 +144,7 @@ class EncryptedLayerProtocol:
         self, layer_idx: int, operation: str,
         enc_vectors: list[ts.CKKSVector],
         chunk_sizes: list[int] | None = None,
+        pack_counts: list[int] | None = None,
     ) -> list[ts.CKKSVector]:
         """Send encrypted vectors to server via msgpack binary transport.
 
@@ -129,6 +164,8 @@ class EncryptedLayerProtocol:
         }
         if chunk_sizes is not None:
             payload["chunk_sizes"] = chunk_sizes
+        if pack_counts is not None:
+            payload["pack_counts"] = pack_counts
 
         # Time network roundtrip (pack + send + receive)
         t0 = time.perf_counter()
@@ -157,6 +194,8 @@ class EncryptedLayerProtocol:
             }
             if chunk_sizes is not None:
                 fallback_payload["chunk_sizes"] = chunk_sizes
+            if pack_counts is not None:
+                fallback_payload["pack_counts"] = pack_counts
             response = self._http_session.post(
                 self.layer_url,
                 json=fallback_payload,
@@ -222,22 +261,36 @@ class EncryptedLayerProtocol:
         num_kv_heads = self.config.num_key_value_heads
         head_dim = hidden_dim // num_heads
         intermediate_size = self.config.intermediate_size  # 5632
+        use_token_packing = seq_len > 1 and hidden_dim * 2 <= SLOT_COUNT
 
         # === Round 1: Q/K/V Projections (batched) ===
         residual = hidden_states.copy()
         normed = rms_norm(hidden_states, input_layernorm_weight, eps)
 
-        enc_normed = [self._encrypt_vector(normed[t]) for t in range(seq_len)]
-        results = self._send_request(layer_idx, "qkv", enc_normed)
-        # Server returns [q0, k0, v0, q1, k1, v1, ...] = 3 per token
+        if use_token_packing:
+            packed_normed = self._pack_tokens([normed[t] for t in range(seq_len)], hidden_dim)
+            enc_normed = [enc_vec for enc_vec, _ in packed_normed]
+            pack_counts = [pack_count for _, pack_count in packed_normed]
+        else:
+            enc_normed = [self._encrypt_vector(normed[t]) for t in range(seq_len)]
+            pack_counts = [1] * seq_len
+        results = self._send_request(layer_idx, "qkv", enc_normed, pack_counts=pack_counts)
+        # Server returns packed groups as [q, k, v] per input ciphertext.
 
         all_q = np.zeros((seq_len, hidden_dim), dtype=np.float32)
         all_k = np.zeros((seq_len, num_kv_heads * head_dim), dtype=np.float32)
         all_v = np.zeros((seq_len, num_kv_heads * head_dim), dtype=np.float32)
-        for t in range(seq_len):
-            all_q[t] = self._decrypt_vector(results[t * 3], hidden_dim)
-            all_k[t] = self._decrypt_vector(results[t * 3 + 1], num_kv_heads * head_dim)
-            all_v[t] = self._decrypt_vector(results[t * 3 + 2], num_kv_heads * head_dim)
+        token_offset = 0
+        for packed_idx, pack_count in enumerate(pack_counts):
+            base_idx = packed_idx * 3
+            q_parts = self._unpack_tokens(results[base_idx], pack_count, hidden_dim)
+            k_parts = self._unpack_tokens(results[base_idx + 1], pack_count, num_kv_heads * head_dim)
+            v_parts = self._unpack_tokens(results[base_idx + 2], pack_count, num_kv_heads * head_dim)
+            for local_idx in range(pack_count):
+                all_q[token_offset] = q_parts[local_idx]
+                all_k[token_offset] = k_parts[local_idx]
+                all_v[token_offset] = v_parts[local_idx]
+                token_offset += 1
 
         # === Client: RoPE + Attention ===
         positions = np.arange(position_offset, position_offset + seq_len)
@@ -262,12 +315,22 @@ class EncryptedLayerProtocol:
         )
 
         # === Round 2: O Projection (batched) ===
-        enc_attn = [self._encrypt_vector(attn_output[t]) for t in range(seq_len)]
-        results = self._send_request(layer_idx, "o_proj", enc_attn)
+        if use_token_packing:
+            packed_attn = self._pack_tokens([attn_output[t] for t in range(seq_len)], hidden_dim)
+            enc_attn = [enc_vec for enc_vec, _ in packed_attn]
+            pack_counts = [pack_count for _, pack_count in packed_attn]
+        else:
+            enc_attn = [self._encrypt_vector(attn_output[t]) for t in range(seq_len)]
+            pack_counts = [1] * seq_len
+        results = self._send_request(layer_idx, "o_proj", enc_attn, pack_counts=pack_counts)
 
         all_o = np.zeros((seq_len, hidden_dim), dtype=np.float32)
-        for t in range(seq_len):
-            all_o[t] = self._decrypt_vector(results[t], hidden_dim)
+        token_offset = 0
+        for packed_idx, pack_count in enumerate(pack_counts):
+            o_parts = self._unpack_tokens(results[packed_idx], pack_count, hidden_dim)
+            for local_idx in range(pack_count):
+                all_o[token_offset] = o_parts[local_idx]
+                token_offset += 1
 
         hidden_states = residual + all_o
 
@@ -283,24 +346,37 @@ class EncryptedLayerProtocol:
             remaining -= chunk
         num_chunks = len(chunk_sizes)
 
-        enc_normed = [self._encrypt_vector(normed[t]) for t in range(seq_len)]
-        results = self._send_request(layer_idx, "ffn_gate_up", enc_normed)
-        # Server returns per-token: [gate_c0, gate_c1, up_c0, up_c1]
+        if use_token_packing:
+            packed_normed = self._pack_tokens([normed[t] for t in range(seq_len)], hidden_dim)
+            enc_normed = [enc_vec for enc_vec, _ in packed_normed]
+            pack_counts = [pack_count for _, pack_count in packed_normed]
+        else:
+            enc_normed = [self._encrypt_vector(normed[t]) for t in range(seq_len)]
+            pack_counts = [1] * seq_len
+        results = self._send_request(layer_idx, "ffn_gate_up", enc_normed, pack_counts=pack_counts)
+        # Server returns per packed input: [gate_c0, gate_c1, up_c0, up_c1]
         results_per_token = num_chunks * 2
 
         all_gate_chunks = [np.zeros((seq_len, cs), dtype=np.float32) for cs in chunk_sizes]
         all_up_chunks = [np.zeros((seq_len, cs), dtype=np.float32) for cs in chunk_sizes]
-        for t in range(seq_len):
-            base_idx = t * results_per_token
+        token_offset = 0
+        for packed_idx, pack_count in enumerate(pack_counts):
+            base_idx = packed_idx * results_per_token
             for i in range(num_chunks):
-                all_gate_chunks[i][t] = self._decrypt_vector(results[base_idx + i], chunk_sizes[i])
-                all_up_chunks[i][t] = self._decrypt_vector(results[base_idx + num_chunks + i], chunk_sizes[i])
+                gate_parts = self._unpack_tokens(results[base_idx + i], pack_count, chunk_sizes[i])
+                up_parts = self._unpack_tokens(results[base_idx + num_chunks + i], pack_count, chunk_sizes[i])
+                for local_idx in range(pack_count):
+                    all_gate_chunks[i][token_offset + local_idx] = gate_parts[local_idx]
+                    all_up_chunks[i][token_offset + local_idx] = up_parts[local_idx]
+            token_offset += pack_count
 
         all_gate = np.concatenate(all_gate_chunks, axis=-1)
         all_up = np.concatenate(all_up_chunks, axis=-1)
         ffn_hidden = silu(all_gate) * all_up
 
         # === Round 4: FFN Down (batched) ===
+        # The first FFN chunk already saturates all CKKS slots (4096), so we
+        # keep the down projection un-packed under the current split protocol.
         enc_all = []
         for t in range(seq_len):
             offset = 0
@@ -308,7 +384,13 @@ class EncryptedLayerProtocol:
                 chunk_data = ffn_hidden[t, offset : offset + cs]
                 enc_all.append(self._encrypt_vector(chunk_data))
                 offset += cs
-        results = self._send_request(layer_idx, "ffn_down", enc_all, chunk_sizes=chunk_sizes)
+        results = self._send_request(
+            layer_idx,
+            "ffn_down",
+            enc_all,
+            chunk_sizes=chunk_sizes,
+            pack_counts=[1] * len(enc_all),
+        )
 
         all_down = np.zeros((seq_len, hidden_dim), dtype=np.float32)
         for t in range(seq_len):
