@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from typing import Any
 
 import tenseal as ts
@@ -24,11 +25,30 @@ def get_backend_name() -> str:
 
 
 def get_backend_status() -> dict[str, Any]:
+    gpu_available, gpu_error = probe_gpu_support()
     return {
         "selected_backend": get_backend_name(),
         "openfhe_available": OPENFHE_AVAILABLE,
         "openfhe_import_error": OPENFHE_IMPORT_ERROR,
+        "gpu_available": gpu_available,
+        "gpu_error": gpu_error,
     }
+
+
+def probe_gpu_support() -> tuple[bool, str | None]:
+    try:
+        proc = subprocess.run(
+            ["nvidia-smi"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return False, "nvidia-smi not found"
+
+    if proc.returncode == 0:
+        return True, None
+    return False, (proc.stderr or proc.stdout or "GPU probe failed").strip()
 
 
 def create_context(

@@ -514,6 +514,9 @@ Per-layer cyclic diagonal extraction and caching are now implemented in `weight_
 
 ### T3.3 -- GPU-Accelerated CKKS
 
+**Status update (2026-03-29): Environment-blocked.**
+Backend status reporting now captures both OpenFHE availability and GPU probe results, but this environment currently has neither a working OpenFHE import nor a working NVIDIA driver. See [T3.3 GPU status](T3.3-GPU-STATUS.md).
+
 | | |
 |---|---|
 | **Why** | GPU provides 20-50x speedup for leveled CKKS ops (corrected from 100-200x). With bootstrapping, reaches 100-200x. |

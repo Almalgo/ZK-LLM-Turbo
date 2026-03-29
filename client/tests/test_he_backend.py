@@ -34,6 +34,8 @@ def test_backend_status_reports_openfhe_state():
     assert status["selected_backend"] == get_backend_name()
     assert status["openfhe_available"] == OPENFHE_AVAILABLE
     assert status["openfhe_import_error"] == OPENFHE_IMPORT_ERROR
+    assert "gpu_available" in status
+    assert "gpu_error" in status
 
 
 def test_public_context_serialization_excludes_secret_key():
