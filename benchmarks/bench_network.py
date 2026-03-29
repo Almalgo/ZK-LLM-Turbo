@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from benchmarks.common import seeded_rng, summarize_samples, write_benchmark_report
+from benchmarks.common import require_server, seeded_rng, summarize_samples, write_benchmark_report
 from client.client import load_config, setup_session
 from client.encryption.ckks_context import create_ckks_context
 from client.inference.layer_protocol import EncryptedLayerProtocol
@@ -52,6 +52,7 @@ def main() -> None:
     args = parser.parse_args()
 
     _, server_cfg = load_config()
+    require_server(server_cfg["base_url"])
     context = create_ckks_context()
     session_id = setup_session(context, server_cfg)
     protocol = EncryptedLayerProtocol(
@@ -63,14 +64,26 @@ def main() -> None:
         model_config=SimpleNamespace(),
     )
     rng = seeded_rng(args.seed)
+    op_inputs = {
+        "qkv": [rng.normal(0.0, 0.01, size=2048).astype(np.float32) for _ in range(args.samples)],
+        "o_proj": [rng.normal(0.0, 0.01, size=2048).astype(np.float32) for _ in range(args.samples)],
+        "ffn_gate_up": [rng.normal(0.0, 0.01, size=2048).astype(np.float32) for _ in range(args.samples)],
+        "ffn_down": [
+            (
+                rng.normal(0.0, 0.01, size=4096).astype(np.float32),
+                rng.normal(0.0, 0.01, size=1536).astype(np.float32),
+            )
+            for _ in range(args.samples)
+        ],
+    }
 
     operations = {
-        "qkv": lambda: [_encrypt(context, rng.normal(0.0, 0.01, size=2048).astype(np.float32))],
-        "o_proj": lambda: [_encrypt(context, rng.normal(0.0, 0.01, size=2048).astype(np.float32))],
-        "ffn_gate_up": lambda: [_encrypt(context, rng.normal(0.0, 0.01, size=2048).astype(np.float32))],
-        "ffn_down": lambda: [
-            _encrypt(context, rng.normal(0.0, 0.01, size=4096).astype(np.float32)),
-            _encrypt(context, rng.normal(0.0, 0.01, size=1536).astype(np.float32)),
+        "qkv": lambda sample_idx: [_encrypt(context, op_inputs["qkv"][sample_idx])],
+        "o_proj": lambda sample_idx: [_encrypt(context, op_inputs["o_proj"][sample_idx])],
+        "ffn_gate_up": lambda sample_idx: [_encrypt(context, op_inputs["ffn_gate_up"][sample_idx])],
+        "ffn_down": lambda sample_idx: [
+            _encrypt(context, op_inputs["ffn_down"][sample_idx][0]),
+            _encrypt(context, op_inputs["ffn_down"][sample_idx][1]),
         ],
     }
 
@@ -85,13 +98,13 @@ def main() -> None:
 
     for operation, vector_factory in operations.items():
         metrics = []
-        for _ in range(args.samples):
+        for sample_idx in range(args.samples):
             metrics.append(
                 _collect_metrics(
                     protocol,
                     args.layer_idx,
                     operation,
-                    vector_factory(),
+                    vector_factory(sample_idx),
                     chunk_sizes=chunk_sizes.get(operation),
                 )
             )

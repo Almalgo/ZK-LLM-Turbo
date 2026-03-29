@@ -22,6 +22,11 @@ def _make_vector(context: ts.Context, values: np.ndarray) -> ts.CKKSVector:
     return ts.ckks_vector(context, values.tolist())
 
 
+def _clone_vector(context: ts.Context, values: np.ndarray) -> ts.CKKSVector:
+    """Create a fresh ciphertext for each sample to avoid consuming modulus levels."""
+    return _make_vector(context, values)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark HE matrix multiplication.")
     parser.add_argument("--samples", type=int, default=5, help="Number of measured samples per dimension.")
@@ -51,26 +56,29 @@ def main() -> None:
     down_weight = rng.normal(0.0, 0.01, size=(5632, 2048)).astype(np.float32)
     chunk_sizes = [4096, 1536]
 
-    enc_hidden_square = _make_vector(context, hidden_vector)
     samples = benchmark_operation(
-        lambda: he_matmul(enc_hidden_square, precomputed_list=hidden_weight_square),
+        lambda: he_matmul(
+            _clone_vector(context, hidden_vector),
+            precomputed_list=hidden_weight_square,
+        ),
         samples=args.samples,
         warmups=args.warmups,
     )
     results.append(summarize_samples("he_matmul_2048x2048", samples))
 
-    enc_hidden_small = _make_vector(context, hidden_vector)
     samples = benchmark_operation(
-        lambda: he_matmul(enc_hidden_small, precomputed_list=hidden_weight_small),
+        lambda: he_matmul(
+            _clone_vector(context, hidden_vector),
+            precomputed_list=hidden_weight_small,
+        ),
         samples=args.samples,
         warmups=args.warmups,
     )
     results.append(summarize_samples("he_matmul_2048x256", samples))
 
-    enc_hidden_ffn = _make_vector(context, hidden_vector)
     samples = benchmark_operation(
         lambda: he_matmul_split_output(
-            enc_hidden_ffn,
+            _clone_vector(context, hidden_vector),
             weight_matrix=hidden_weight_ffn,
             precomputed_chunks=hidden_weight_ffn_chunks,
         ),
@@ -85,12 +93,15 @@ def main() -> None:
         )
     )
 
-    enc_down_chunks = [
-        _make_vector(context, down_input[:4096]),
-        _make_vector(context, down_input[4096:]),
-    ]
     samples = benchmark_operation(
-        lambda: he_matmul_split_input(enc_down_chunks, down_weight, chunk_sizes=chunk_sizes),
+        lambda: he_matmul_split_input(
+            [
+                _clone_vector(context, down_input[:4096]),
+                _clone_vector(context, down_input[4096:]),
+            ],
+            down_weight,
+            chunk_sizes=chunk_sizes,
+        ),
         samples=args.samples,
         warmups=args.warmups,
     )

@@ -6,6 +6,8 @@ import json
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, UTC
 from pathlib import Path
 from statistics import mean, stdev
@@ -93,3 +95,14 @@ def write_benchmark_report(
 def seeded_rng(seed: int) -> np.random.Generator:
     """Return a deterministic RNG for reproducible benchmarks."""
     return np.random.default_rng(seed)
+
+
+def require_server(base_url: str) -> None:
+    """Fail fast with a helpful message if the inference server is unavailable."""
+    try:
+        with urllib.request.urlopen(base_url, timeout=5):
+            return
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise SystemExit(
+            f"Server not reachable at {base_url}. Start it with: python -m server.server"
+        ) from exc

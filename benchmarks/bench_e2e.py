@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from benchmarks.common import summarize_samples, write_benchmark_report
+from benchmarks.common import require_server, summarize_samples, write_benchmark_report
 from client.client import generate
 
 
@@ -33,6 +33,10 @@ def main() -> None:
         help="Output JSON path.",
     )
     args = parser.parse_args()
+    from client.client import load_config
+
+    _, server_cfg = load_config()
+    require_server(server_cfg["base_url"])
 
     results = []
     for encrypted_layers in args.layers:
@@ -46,7 +50,7 @@ def main() -> None:
                 return_stats=True,
                 quiet=True,
             )
-            ms_per_token = (run["stats"]["total"] / max(run["tokens_generated"], 1)) * 1000
+            ms_per_token = (run.stats["total"] / max(run.tokens_generated, 1)) * 1000
             sample_values.append(ms_per_token)
 
         results.append(

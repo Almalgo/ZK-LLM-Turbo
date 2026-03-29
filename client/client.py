@@ -12,6 +12,7 @@ import sys
 import argparse
 import logging
 import time
+from dataclasses import dataclass
 from pathlib import Path
 import base64
 import uuid
@@ -35,6 +36,15 @@ logger = get_logger("client")
 
 # Module-level reusable HTTP session
 _http_session = requests.Session()
+
+
+@dataclass(frozen=True)
+class GenerationResult:
+    full_text: str
+    generated_text: str
+    generated_token_ids: list[int]
+    tokens_generated: int
+    stats: dict[str, float]
 
 
 def load_config():
@@ -266,13 +276,13 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
         _print_stats(stats)
 
     if return_stats:
-        return {
-            "full_text": full_text,
-            "generated_text": output_text,
-            "generated_token_ids": generated_tokens,
-            "tokens_generated": len(generated_tokens),
-            "stats": stats,
-        }
+        return GenerationResult(
+            full_text=full_text,
+            generated_text=output_text,
+            generated_token_ids=generated_tokens,
+            tokens_generated=len(generated_tokens),
+            stats=stats,
+        )
 
     return full_text
 
