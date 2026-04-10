@@ -20,7 +20,9 @@ def load_model():
         return _model
     logger.info("Loading model", extra={"extra": {"model": MODEL_NAME}})
     _model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME, torch_dtype=torch.float32
+        MODEL_NAME,
+        torch_dtype=torch.float32,
+        low_cpu_mem_usage=True,
     )
     _model.eval()
     logger.info("Model loaded", extra={"extra": {"model": MODEL_NAME}})

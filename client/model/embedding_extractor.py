@@ -12,7 +12,9 @@ def load_model(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
     if _cached_model is not None and _cached_model_name == model_name:
         return _cached_model
     _cached_model = AutoModelForCausalLM.from_pretrained(
-        model_name, torch_dtype=torch.float32
+        model_name,
+        torch_dtype=torch.float32,
+        low_cpu_mem_usage=True,
     )
     _cached_model.eval()
     _cached_model_name = model_name

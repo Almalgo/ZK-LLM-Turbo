@@ -59,6 +59,7 @@ class EncryptedLayerProtocol:
         use_merged_ffn: bool = False,
         use_poly_silu: bool = False,
         use_websocket: bool = False,
+        request_timeout_seconds: float = 300,
     ):
         self.context = context
         self.session_id = session_id
@@ -73,6 +74,7 @@ class EncryptedLayerProtocol:
         self.use_merged_ffn = use_merged_ffn
         self.use_poly_silu = use_poly_silu
         self.use_websocket = use_websocket
+        self.request_timeout_seconds = request_timeout_seconds
         self._kv_cache = {}  # layer_idx -> {"k": ndarray, "v": ndarray}
         self._round_metrics = []
         self._websocket = None
@@ -102,6 +104,7 @@ class EncryptedLayerProtocol:
                 compression=None,
                 open_timeout=30,
                 close_timeout=10,
+                ping_interval=None,
                 max_size=None,
             )
         return self._websocket
@@ -214,6 +217,7 @@ class EncryptedLayerProtocol:
         body = msgpack.packb(payload, use_bin_type=True)
         payload_bytes = len(body)
         used_binary = True
+        request_timeout_seconds = getattr(self, "request_timeout_seconds", 300)
         response_content = b""
 
         if self.use_websocket:
@@ -235,7 +239,7 @@ class EncryptedLayerProtocol:
                     self.layer_url + "/binary",
                     data=body,
                     headers={"Content-Type": "application/msgpack"},
-                    timeout=300,
+                    timeout=request_timeout_seconds,
                 )
                 response.raise_for_status()
                 response_content = response.content
@@ -256,7 +260,7 @@ class EncryptedLayerProtocol:
                 response = self._http_session.post(
                     self.layer_url,
                     json=fallback_payload,
-                    timeout=300,
+                    timeout=request_timeout_seconds,
                 )
                 response.raise_for_status()
                 response_content = response.content
@@ -296,6 +300,39 @@ class EncryptedLayerProtocol:
             extra={"extra": metrics},
         )
         return result
+
+    async def _send_request_async(
+        self,
+        layer_idx: int,
+        operation: str,
+        enc_vectors: list[object],
+        chunk_sizes: list[int] | None = None,
+        pack_counts: list[int] | None = None,
+    ) -> list[object]:
+        return await asyncio.to_thread(
+            self._send_request,
+            layer_idx,
+            operation,
+            enc_vectors,
+            chunk_sizes,
+            pack_counts,
+        )
+
+    async def _encrypt_vectors_async(self, vectors: list[np.ndarray]) -> list[object]:
+        return await asyncio.gather(
+            *(asyncio.to_thread(self._encrypt_vector, vec) for vec in vectors)
+        )
+
+    async def _decrypt_pairs_async(
+        self,
+        decrypt_pairs: list[tuple[object, int]],
+    ) -> list[np.ndarray]:
+        return await asyncio.gather(
+            *(
+                asyncio.to_thread(self._decrypt_vector, enc_vec, expected_len)
+                for enc_vec, expected_len in decrypt_pairs
+            )
+        )
 
     def process_layer(
         self, hidden_states: np.ndarray, layer_idx: int,
@@ -435,11 +472,142 @@ class EncryptedLayerProtocol:
         eps: float,
         position_offset: int = 0,
     ) -> np.ndarray:
-        return self.process_layer(
-            hidden_states,
-            layer_idx,
-            input_layernorm_weight,
-            post_attn_layernorm_weight,
-            eps,
-            position_offset,
+        seq_len = hidden_states.shape[0]
+        hidden_dim = hidden_states.shape[1]
+        num_heads = self.config.num_attention_heads
+        num_kv_heads = self.config.num_key_value_heads
+        head_dim = hidden_dim // num_heads
+        intermediate_size = self.config.intermediate_size
+
+        residual = hidden_states.copy()
+        normed = rms_norm(hidden_states, input_layernorm_weight, eps)
+
+        enc_normed = await self._encrypt_vectors_async([normed[t] for t in range(seq_len)])
+        results = await self._send_request_async(layer_idx, "qkv", enc_normed)
+
+        qkv_plain = await self._decrypt_pairs_async(
+            [
+                (results[t * 3], hidden_dim)
+                for t in range(seq_len)
+            ]
+            + [
+                (results[t * 3 + 1], num_kv_heads * head_dim)
+                for t in range(seq_len)
+            ]
+            + [
+                (results[t * 3 + 2], num_kv_heads * head_dim)
+                for t in range(seq_len)
+            ]
         )
+
+        all_q = np.stack(qkv_plain[:seq_len]).astype(np.float32)
+        all_k = np.stack(qkv_plain[seq_len : 2 * seq_len]).astype(np.float32)
+        all_v = np.stack(qkv_plain[2 * seq_len :]).astype(np.float32)
+
+        positions = np.arange(position_offset, position_offset + seq_len)
+        all_q, all_k = apply_rotary_embeddings_at_positions(
+            all_q,
+            all_k,
+            positions,
+            head_dim=head_dim,
+            num_heads=num_heads,
+            num_kv_heads=num_kv_heads,
+        )
+
+        cache = self._kv_cache.get(layer_idx)
+        if cache is not None:
+            full_k = np.concatenate([cache["k"], all_k], axis=0)
+            full_v = np.concatenate([cache["v"], all_v], axis=0)
+        else:
+            full_k = all_k
+            full_v = all_v
+        self._kv_cache[layer_idx] = {"k": full_k, "v": full_v}
+
+        attn_output = compute_attention_cached(
+            all_q,
+            full_k,
+            full_v,
+            num_heads=num_heads,
+            num_kv_heads=num_kv_heads,
+            head_dim=head_dim,
+        )
+
+        enc_attn = await self._encrypt_vectors_async([attn_output[t] for t in range(seq_len)])
+        results = await self._send_request_async(layer_idx, "o_proj", enc_attn)
+        o_plain = await self._decrypt_pairs_async([(result, hidden_dim) for result in results])
+        all_o = np.stack(o_plain).astype(np.float32)
+
+        hidden_states = residual + all_o
+
+        residual = hidden_states.copy()
+        normed = rms_norm(hidden_states, post_attn_layernorm_weight, eps)
+
+        chunk_sizes = []
+        remaining = intermediate_size
+        while remaining > 0:
+            chunk = min(remaining, SLOT_COUNT)
+            chunk_sizes.append(chunk)
+            remaining -= chunk
+        num_chunks = len(chunk_sizes)
+
+        enc_normed = await self._encrypt_vectors_async([normed[t] for t in range(seq_len)])
+        if self.use_merged_ffn:
+            merged_results = await self._send_request_async(
+                layer_idx,
+                "ffn_merged",
+                enc_normed,
+                chunk_sizes=chunk_sizes,
+            )
+            merged_plain = await self._decrypt_pairs_async(
+                [(result, hidden_dim) for result in merged_results]
+            )
+            all_down = np.stack(merged_plain).astype(np.float32)
+        else:
+            results = await self._send_request_async(layer_idx, "ffn_gate_up", enc_normed)
+            results_per_token = num_chunks * 2
+            decrypt_pairs = []
+            for t in range(seq_len):
+                base_idx = t * results_per_token
+                for i in range(num_chunks):
+                    decrypt_pairs.append((results[base_idx + i], chunk_sizes[i]))
+                for i in range(num_chunks):
+                    decrypt_pairs.append((results[base_idx + num_chunks + i], chunk_sizes[i]))
+
+            plain_chunks = await self._decrypt_pairs_async(decrypt_pairs)
+            all_gate_chunks = [np.zeros((seq_len, cs), dtype=np.float32) for cs in chunk_sizes]
+            all_up_chunks = [np.zeros((seq_len, cs), dtype=np.float32) for cs in chunk_sizes]
+            plain_idx = 0
+            for t in range(seq_len):
+                for i in range(num_chunks):
+                    all_gate_chunks[i][t] = plain_chunks[plain_idx]
+                    plain_idx += 1
+                for i in range(num_chunks):
+                    all_up_chunks[i][t] = plain_chunks[plain_idx]
+                    plain_idx += 1
+
+            all_gate = np.concatenate(all_gate_chunks, axis=-1)
+            all_up = np.concatenate(all_up_chunks, axis=-1)
+            activation_fn = poly_silu if self.use_poly_silu else silu
+            ffn_hidden = activation_fn(all_gate) * all_up
+
+            enc_all = []
+            for t in range(seq_len):
+                offset = 0
+                for cs in chunk_sizes:
+                    chunk_data = ffn_hidden[t, offset : offset + cs]
+                    enc_all.append(chunk_data)
+                    offset += cs
+            enc_all = await self._encrypt_vectors_async(enc_all)
+            results = await self._send_request_async(
+                layer_idx,
+                "ffn_down",
+                enc_all,
+                chunk_sizes=chunk_sizes,
+            )
+            down_plain = await self._decrypt_pairs_async(
+                [(result, hidden_dim) for result in results]
+            )
+            all_down = np.stack(down_plain).astype(np.float32)
+
+        hidden_states = residual + all_down
+        return hidden_states

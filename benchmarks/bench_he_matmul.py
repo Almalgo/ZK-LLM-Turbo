@@ -11,7 +11,7 @@ import tenseal as ts
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.insert(0, str(ROOT))
 
 from benchmarks.common import benchmark_operation, load_ckks_params, seeded_rng, summarize_samples, write_benchmark_report
 from client.encryption.ckks_context import create_ckks_context

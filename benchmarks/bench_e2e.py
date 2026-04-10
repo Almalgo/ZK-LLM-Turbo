@@ -8,7 +8,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.insert(0, str(ROOT))
 
 from benchmarks.common import require_server, summarize_samples, write_benchmark_report
 from client.client import generate
@@ -19,6 +19,18 @@ def main() -> None:
     parser.add_argument("--prompt", type=str, default="Hello", help="Prompt used for generation.")
     parser.add_argument("--num-tokens", type=int, default=2, help="Tokens to generate per sample.")
     parser.add_argument("--samples", type=int, default=1, help="Number of runs per encrypted layer count.")
+    parser.add_argument(
+        "--transport",
+        choices=["auto", "http", "websocket"],
+        default="auto",
+        help="Transport override for generation runs.",
+    )
+    parser.add_argument(
+        "--pipeline-mode",
+        choices=["auto", "sync", "async"],
+        default="auto",
+        help="Async pipeline override for generation runs.",
+    )
     parser.add_argument(
         "--layers",
         type=int,
@@ -38,6 +50,18 @@ def main() -> None:
     _, server_cfg = load_config()
     require_server(server_cfg["base_url"])
 
+    use_websocket_override = None
+    if args.transport == "http":
+        use_websocket_override = False
+    elif args.transport == "websocket":
+        use_websocket_override = True
+
+    use_async_pipeline_override = None
+    if args.pipeline_mode == "sync":
+        use_async_pipeline_override = False
+    elif args.pipeline_mode == "async":
+        use_async_pipeline_override = True
+
     results = []
     for encrypted_layers in args.layers:
         sample_values = []
@@ -49,6 +73,8 @@ def main() -> None:
                 show_stats=False,
                 return_stats=True,
                 quiet=True,
+                use_websocket_override=use_websocket_override,
+                use_async_pipeline_override=use_async_pipeline_override,
             )
             ms_per_token = (run.stats["total"] / max(run.tokens_generated, 1)) * 1000
             sample_values.append(ms_per_token)
@@ -64,7 +90,12 @@ def main() -> None:
     output_path = write_benchmark_report(
         args.output,
         results,
-        metadata={"prompt": args.prompt, "samples_per_layer": args.samples},
+        metadata={
+            "prompt": args.prompt,
+            "samples_per_layer": args.samples,
+            "transport": args.transport,
+            "pipeline_mode": args.pipeline_mode,
+        },
     )
     print(f"Wrote {output_path}")
 

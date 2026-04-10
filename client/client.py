@@ -12,6 +12,7 @@ import sys
 import argparse
 import asyncio
 import logging
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -57,6 +58,25 @@ def load_config():
     """Load client and server configuration."""
     client_cfg = yaml.safe_load(Path("client/config/client_config.yaml").read_text())
     server_cfg = yaml.safe_load(Path("client/config/endpoints.yaml").read_text())["server"]
+
+    env_overrides = {
+        "base_url": os.getenv("ZKLLM_SERVER_BASE_URL"),
+        "infer_endpoint": os.getenv("ZKLLM_SERVER_INFER_ENDPOINT"),
+        "session_endpoint": os.getenv("ZKLLM_SERVER_SESSION_ENDPOINT"),
+        "layer_endpoint": os.getenv("ZKLLM_SERVER_LAYER_ENDPOINT"),
+        "layer_ws_endpoint": os.getenv("ZKLLM_SERVER_LAYER_WS_ENDPOINT"),
+        "auth_token": os.getenv("ZKLLM_SERVER_AUTH_TOKEN"),
+    }
+    for key, value in env_overrides.items():
+        if value:
+            server_cfg[key] = value
+
+    request_timeout_seconds = os.getenv("ZKLLM_REQUEST_TIMEOUT_SECONDS")
+    if request_timeout_seconds:
+        client_cfg.setdefault("inference", {})["request_timeout_seconds"] = float(
+            request_timeout_seconds
+        )
+
     return client_cfg, server_cfg
 
 
@@ -109,7 +129,11 @@ def _print_stats(stats):
 
 def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
              show_stats: bool = False, return_stats: bool = False,
-             quiet: bool = False):
+             quiet: bool = False,
+             use_websocket_override: bool | None = None,
+             use_async_pipeline_override: bool | None = None,
+             use_merged_ffn_override: bool | None = None,
+             use_poly_silu_override: bool | None = None):
     """Generate tokens using split encrypted/plaintext inference.
 
     Args:
@@ -164,6 +188,18 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
     stats["session_setup"] = time.perf_counter() - t0
 
     # Create layer protocol for encrypted rounds
+    use_websocket = client_cfg.get("inference", {}).get("use_websocket", False)
+    if use_websocket_override is not None:
+        use_websocket = use_websocket_override
+
+    use_merged_ffn = client_cfg.get("inference", {}).get("use_merged_ffn", False)
+    if use_merged_ffn_override is not None:
+        use_merged_ffn = use_merged_ffn_override
+
+    use_poly_silu = client_cfg.get("inference", {}).get("use_poly_silu", False)
+    if use_poly_silu_override is not None:
+        use_poly_silu = use_poly_silu_override
+
     protocol = EncryptedLayerProtocol(
         context=context,
         session_id=session_id,
@@ -172,11 +208,16 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
         auth_token=server_cfg["auth_token"],
         model_config=model_config,
         websocket_layer_endpoint=server_cfg.get("layer_ws_endpoint"),
-        use_merged_ffn=client_cfg.get("inference", {}).get("use_merged_ffn", False),
-        use_poly_silu=client_cfg.get("inference", {}).get("use_poly_silu", False),
-        use_websocket=client_cfg.get("inference", {}).get("use_websocket", False),
+        use_merged_ffn=use_merged_ffn,
+        use_poly_silu=use_poly_silu,
+        use_websocket=use_websocket,
+        request_timeout_seconds=client_cfg.get("inference", {}).get(
+            "request_timeout_seconds", 300
+        ),
     )
     pipeline_enabled = client_cfg.get("inference", {}).get("use_async_pipeline", False)
+    if use_async_pipeline_override is not None:
+        pipeline_enabled = use_async_pipeline_override
 
     # Tokenize
     tokens = tokenize_prompt(prompt, tokenizer)

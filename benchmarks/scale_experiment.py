@@ -16,7 +16,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.insert(0, str(ROOT))
 
 from benchmarks.common import write_benchmark_report
 from client.encryption.ckks_context import create_ckks_context, load_ckks_config

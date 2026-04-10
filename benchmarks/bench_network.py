@@ -12,7 +12,7 @@ import tenseal as ts
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.insert(0, str(ROOT))
 
 from benchmarks.common import require_server, seeded_rng, summarize_samples, write_benchmark_report
 from client.client import load_config, setup_session
@@ -44,6 +44,19 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=0, help="Deterministic RNG seed.")
     parser.add_argument("--layer-idx", type=int, default=0, help="Layer index used for server-side weights.")
     parser.add_argument(
+        "--operations",
+        nargs="*",
+        choices=["qkv", "o_proj", "ffn_gate_up", "ffn_down"],
+        default=["qkv", "o_proj", "ffn_gate_up", "ffn_down"],
+        help="Subset of operations to benchmark.",
+    )
+    parser.add_argument(
+        "--transport",
+        choices=["http", "websocket"],
+        default="http",
+        help="Transport to benchmark.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("benchmarks/results/bench_network.json"),
@@ -62,6 +75,8 @@ def main() -> None:
         layer_endpoint=server_cfg["layer_endpoint"],
         auth_token=server_cfg["auth_token"],
         model_config=SimpleNamespace(),
+        websocket_layer_endpoint=server_cfg.get("layer_ws_endpoint"),
+        use_websocket=args.transport == "websocket",
     )
     rng = seeded_rng(args.seed)
     op_inputs = {
@@ -93,10 +108,13 @@ def main() -> None:
         "server_base_url": server_cfg["base_url"],
         "layer_idx": args.layer_idx,
         "seed": args.seed,
+        "transport": args.transport,
+        "selected_operations": args.operations,
         "operations": {},
     }
 
-    for operation, vector_factory in operations.items():
+    for operation in args.operations:
+        vector_factory = operations[operation]
         metrics = []
         for sample_idx in range(args.samples):
             metrics.append(

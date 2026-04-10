@@ -17,7 +17,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.insert(0, str(ROOT))
 
 RESULTS_DIR = ROOT / "benchmarks" / "results"
 
@@ -100,10 +100,20 @@ def seeded_rng(seed: int) -> np.random.Generator:
 
 def require_server(base_url: str) -> None:
     """Fail fast with a helpful message if the inference server is unavailable."""
-    try:
-        with urllib.request.urlopen(base_url, timeout=5):
-            return
-    except (urllib.error.URLError, TimeoutError) as exc:
-        raise SystemExit(
-            f"Server not reachable at {base_url}. Start it with: python -m server.server"
-        ) from exc
+    probe_urls = [base_url, base_url.rstrip("/") + "/docs"]
+    last_error = None
+
+    for url in probe_urls:
+        try:
+            with urllib.request.urlopen(url, timeout=5):
+                return
+        except urllib.error.HTTPError as exc:
+            if exc.code < 500:
+                return
+            last_error = exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            last_error = exc
+
+    raise SystemExit(
+        f"Server not reachable at {base_url}. Start it with: python -m server.server"
+    ) from last_error

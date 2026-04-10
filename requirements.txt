@@ -8,3 +8,11 @@ psutil
 tenseal
 msgpack
 zstandard
+pyyaml
+requests
+websockets
+fastapi
+uvicorn
+python-dotenv
+pytest
+requests-mock

@@ -12,7 +12,7 @@ import zstandard as zstd
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+    sys.path.insert(0, str(ROOT))
 
 from benchmarks.common import benchmark_operation, seeded_rng, summarize_samples, write_benchmark_report
 from client.encryption.ckks_context import create_ckks_context
