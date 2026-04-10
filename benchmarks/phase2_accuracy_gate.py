@@ -124,6 +124,7 @@ def _prompt_mode_metrics(
     num_encrypted_layers: int,
     transport: str,
     pipeline_mode: str,
+    comparison_modes: list[str] | None = None,
 ) -> dict:
     _, server_cfg = load_config()
     require_server(server_cfg["base_url"])
@@ -155,22 +156,41 @@ def _prompt_mode_metrics(
         },
     }
 
+    selected_modes = comparison_modes or list(modes.keys())
+    if "exact_split" not in selected_modes:
+        raise ValueError("comparison_modes must include 'exact_split' as baseline")
+
     prompt_results = []
-    mode_agreements = {mode: [] for mode in modes if mode != "exact_split"}
+    mode_agreements = {mode: [] for mode in selected_modes if mode != "exact_split"}
+    failures = []
 
     for prompt in prompts:
         runs = {}
-        for mode_name, overrides in modes.items():
-            runs[mode_name] = generate(
-                prompt=prompt,
-                num_tokens=num_tokens,
-                num_encrypted_layers=num_encrypted_layers,
-                return_stats=True,
-                quiet=True,
-                use_websocket_override=use_websocket_override,
-                use_async_pipeline_override=use_async_pipeline_override,
-                **overrides,
-            )
+        for mode_name in selected_modes:
+            overrides = modes[mode_name]
+            try:
+                runs[mode_name] = generate(
+                    prompt=prompt,
+                    num_tokens=num_tokens,
+                    num_encrypted_layers=num_encrypted_layers,
+                    return_stats=True,
+                    quiet=True,
+                    use_websocket_override=use_websocket_override,
+                    use_async_pipeline_override=use_async_pipeline_override,
+                    **overrides,
+                )
+            except Exception as exc:
+                failures.append(
+                    {
+                        "prompt": prompt,
+                        "mode": mode_name,
+                        "error": str(exc),
+                    }
+                )
+                break
+
+        if "exact_split" not in runs:
+            continue
 
         baseline = runs["exact_split"]
         comparisons = {}
@@ -207,7 +227,9 @@ def _prompt_mode_metrics(
         "num_encrypted_layers": num_encrypted_layers,
         "transport": transport,
         "pipeline_mode": pipeline_mode,
+        "comparison_modes": selected_modes,
         "prompts": prompt_results,
+        "failures": failures,
         "aggregate": {
             mode: {
                 "mean_token_agreement": float(np.mean(values)) if values else 0.0,
@@ -256,6 +278,13 @@ def main() -> None:
         help="Pipeline mode for prompt comparisons.",
     )
     parser.add_argument(
+        "--comparison-modes",
+        nargs="*",
+        choices=["exact_split", "poly_split", "merged_he"],
+        default=["exact_split", "poly_split", "merged_he"],
+        help="Subset of prompt comparison modes to evaluate.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("benchmarks/results/phase2_accuracy_gate.json"),
@@ -283,6 +312,7 @@ def main() -> None:
             num_encrypted_layers=args.num_encrypted_layers,
             transport=args.transport,
             pipeline_mode=args.pipeline_mode,
+            comparison_modes=args.comparison_modes,
         )
     else:
         report["prompt_mode_comparison"] = {

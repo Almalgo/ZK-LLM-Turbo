@@ -31,11 +31,14 @@ def test_prompt_mode_metrics_summarizes_mode_comparisons(monkeypatch):
         num_encrypted_layers=1,
         transport="http",
         pipeline_mode="sync",
+        comparison_modes=["exact_split", "poly_split", "merged_he"],
     )
 
     assert result["enabled"] is True
     assert result["transport"] == "http"
     assert result["pipeline_mode"] == "sync"
+    assert result["comparison_modes"] == ["exact_split", "poly_split", "merged_he"]
+    assert result["failures"] == []
     assert result["aggregate"]["poly_split"]["mean_token_agreement"] == 2 / 3
     assert result["aggregate"]["merged_he"]["mean_token_agreement"] == 1 / 3
     assert result["prompts"][0]["exact_split"]["generated_text"] == "baseline"
