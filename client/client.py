@@ -13,6 +13,7 @@ import argparse
 import asyncio
 import logging
 import os
+import random
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -92,14 +93,43 @@ def setup_session(context, server_cfg):
         "Authorization": f"Bearer {server_cfg['auth_token']}",
         "Content-Type": "application/json",
     }
-    response = _http_session.post(
-        url,
-        json={"public_context_b64": public_b64},
-        headers=headers,
-        timeout=30,
-    )
-    response.raise_for_status()
-    session_id = response.json()["session_id"]
+    max_attempts = int(server_cfg.get("session_setup_max_attempts", 3))
+    retry_delay_seconds = float(server_cfg.get("session_setup_retry_delay_seconds", 2.0))
+
+    last_error = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = _http_session.post(
+                url,
+                json={"public_context_b64": public_b64},
+                headers=headers,
+                timeout=30,
+            )
+            response.raise_for_status()
+            session_id = response.json()["session_id"]
+            break
+        except (requests.exceptions.RequestException, KeyError) as exc:
+            last_error = exc
+            if attempt == max_attempts:
+                raise
+            jitter = random.uniform(0.0, 0.25)
+            sleep_s = retry_delay_seconds * attempt + jitter
+            logger.warning(
+                "Session setup failed, retrying",
+                extra={
+                    "extra": {
+                        "attempt": attempt,
+                        "max_attempts": max_attempts,
+                        "retry_delay_seconds": round(sleep_s, 2),
+                        "error": str(exc),
+                    }
+                },
+            )
+            time.sleep(sleep_s)
+
+    if last_error is not None and "session_id" not in locals():
+        raise last_error
+
     logger.info("Session established", extra={"extra": {"session_id": session_id}})
     return session_id
 
