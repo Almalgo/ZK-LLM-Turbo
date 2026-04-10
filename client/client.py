@@ -276,15 +276,16 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
             if plaintext_cache is None:
                 from transformers import DynamicCache
                 plaintext_cache = DynamicCache()
-                num_kv_heads = model_config.num_key_value_heads
-                head_dim = model_config.hidden_size // model_config.num_attention_heads
-                for _ in range(num_encrypted_layers):
-                    plaintext_cache.key_cache.append(
-                        torch.zeros(1, num_kv_heads, 0, head_dim, device=device)
-                    )
-                    plaintext_cache.value_cache.append(
-                        torch.zeros(1, num_kv_heads, 0, head_dim, device=device)
-                    )
+                if hasattr(plaintext_cache, "key_cache") and hasattr(plaintext_cache, "value_cache"):
+                    num_kv_heads = model_config.num_key_value_heads
+                    head_dim = model_config.hidden_size // model_config.num_attention_heads
+                    for _ in range(num_encrypted_layers):
+                        plaintext_cache.key_cache.append(
+                            torch.zeros(1, num_kv_heads, 0, head_dim, device=device)
+                        )
+                        plaintext_cache.value_cache.append(
+                            torch.zeros(1, num_kv_heads, 0, head_dim, device=device)
+                        )
 
             with torch.no_grad():
                 for layer_idx in range(num_encrypted_layers, total_layers):
