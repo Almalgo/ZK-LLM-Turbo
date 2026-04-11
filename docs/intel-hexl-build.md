@@ -8,6 +8,11 @@ Build a HEXL-enabled TenSEAL wheel for environments where:
 - the team wants to benchmark whether Intel HEXL improves CKKS matmul latency
 - the standard `pip install tenseal` wheel is not sufficient
 
+Additional local build prerequisites:
+
+- Python development headers for your interpreter (for example `python3.12-dev`)
+- A CMake version compatible with Intel HEXL/SEAL dependency tree (3.x recommended)
+
 This repository keeps the default pip-installed TenSEAL path as the fallback.
 
 ## Quick Check
@@ -50,10 +55,18 @@ What it does:
 5. builds SEAL with `-DSEAL_USE_INTEL_HEXL=ON`
 6. builds a TenSEAL wheel against that local toolchain
 
+Defaults:
+
+- `HEXL_REF=v1.2.5`
+- `SEAL_REF=v4.1.1`
+- `TENSEAL_REF=v0.3.15`
+
 Outputs:
 
 - local install prefix under `.local/tenseal-hexl/`
 - built wheel under `dist/hexl/`
+
+If wheel build fails with a message about missing `/usr/include/pythonX.Y`, install Python dev headers for that exact interpreter version and rerun the script.
 
 ## Install The Built Wheel
 

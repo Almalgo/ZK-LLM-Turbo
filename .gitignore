@@ -11,3 +11,5 @@ docs/plan.md
 .venv/
 split-inference-env/
 benchmark-server-*.log
+.build/
+.local/

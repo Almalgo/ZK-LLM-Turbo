@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-04-11T17:52:04.149531+00:00",
+  "git_sha": "41d5f5bf5df8de7f93ea03f563de7d5f3eadda6d",
+  "ckks_params": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      40,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776,
+    "use_galois_keys": true,
+    "use_relin_keys": true
+  },
+  "results": [
+    {
+      "name": "he_matmul_2048x2048",
+      "mean_ms": 32625.355,
+      "std_ms": 293.691,
+      "samples": 3,
+      "raw_samples_ms": [
+        32865.037,
+        32713.286,
+        32297.742
+      ]
+    },
+    {
+      "name": "he_matmul_2048x256",
+      "mean_ms": 34331.747,
+      "std_ms": 1154.352,
+      "samples": 3,
+      "raw_samples_ms": [
+        35147.535,
+        34836.759,
+        33010.948
+      ]
+    },
+    {
+      "name": "he_matmul_split_output_2048x5632",
+      "mean_ms": 65266.078,
+      "std_ms": 1507.055,
+      "samples": 3,
+      "raw_samples_ms": [
+        66964.593,
+        64744.694,
+        64088.947
+      ],
+      "metadata": {
+        "chunk_sizes": [
+          4096,
+          1536
+        ]
+      }
+    },
+    {
+      "name": "he_matmul_split_input_5632x2048",
+      "mean_ms": 93853.725,
+      "std_ms": 1664.094,
+      "samples": 3,
+      "raw_samples_ms": [
+        95365.392,
+        92070.587,
+        94125.196
+      ],
+      "metadata": {
+        "chunk_sizes": [
+          4096,
+          1536
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "matrix_source": "synthetic",
+    "seed": 0
+  }
+}

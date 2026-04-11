@@ -1,0 +1,54 @@
+{
+  "timestamp": "2026-04-11T18:21:09.718117+00:00",
+  "baseline_report": "benchmarks/results/bench_he_matmul_baseline.json",
+  "candidate_report": "benchmarks/results/bench_he_matmul_baseline.json",
+  "probe": {
+    "avx512_detected": true,
+    "probed_binaries": [
+      "/home/rojo/repos/ZK-LLM-Turbo/split-inference-env/lib/python3.12/site-packages/libtenseal.so",
+      "/home/rojo/repos/ZK-LLM-Turbo/split-inference-env/lib/python3.12/site-packages/_sealapi_cpp.cpython-312-x86_64-linux-gnu.so",
+      "/home/rojo/repos/ZK-LLM-Turbo/split-inference-env/lib/python3.12/site-packages/_tenseal_cpp.cpython-312-x86_64-linux-gnu.so"
+    ],
+    "linked_binaries": [],
+    "hexl_linked": false
+  },
+  "comparisons": [
+    {
+      "name": "he_matmul_2048x2048",
+      "baseline_mean_ms": 32625.355,
+      "candidate_mean_ms": 32625.355,
+      "speedup": 1.0,
+      "improvement_pct": 0.0
+    },
+    {
+      "name": "he_matmul_2048x256",
+      "baseline_mean_ms": 34331.747,
+      "candidate_mean_ms": 34331.747,
+      "speedup": 1.0,
+      "improvement_pct": 0.0
+    },
+    {
+      "name": "he_matmul_split_input_5632x2048",
+      "baseline_mean_ms": 93853.725,
+      "candidate_mean_ms": 93853.725,
+      "speedup": 1.0,
+      "improvement_pct": 0.0
+    },
+    {
+      "name": "he_matmul_split_output_2048x5632",
+      "baseline_mean_ms": 65266.078,
+      "candidate_mean_ms": 65266.078,
+      "speedup": 1.0,
+      "improvement_pct": 0.0
+    }
+  ],
+  "decision": {
+    "accepted": false,
+    "average_speedup": 1.0,
+    "min_required_speedup": 1.05,
+    "reasons": [
+      "HEXL linkage not detected in active TenSEAL binaries.",
+      "Average speedup 1.000 is below required threshold 1.050."
+    ]
+  }
+}

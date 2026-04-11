@@ -1,0 +1,10 @@
+{
+  "avx512_detected": true,
+  "probed_binaries": [
+    "/home/rojo/repos/ZK-LLM-Turbo/split-inference-env/lib/python3.12/site-packages/libtenseal.so",
+    "/home/rojo/repos/ZK-LLM-Turbo/split-inference-env/lib/python3.12/site-packages/_sealapi_cpp.cpython-312-x86_64-linux-gnu.so",
+    "/home/rojo/repos/ZK-LLM-Turbo/split-inference-env/lib/python3.12/site-packages/_tenseal_cpp.cpython-312-x86_64-linux-gnu.so"
+  ],
+  "linked_binaries": [],
+  "hexl_linked": false
+}

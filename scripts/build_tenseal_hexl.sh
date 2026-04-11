@@ -14,7 +14,7 @@ HEXL_REF="${HEXL_REF:-v1.2.5}"
 SEAL_REPO="${SEAL_REPO:-https://github.com/microsoft/SEAL.git}"
 SEAL_REF="${SEAL_REF:-v4.1.1}"
 TENSEAL_REPO="${TENSEAL_REPO:-https://github.com/OpenMined/TenSEAL.git}"
-TENSEAL_REF="${TENSEAL_REF:-0.3.16}"
+TENSEAL_REF="${TENSEAL_REF:-v0.3.15}"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 JOBS="${JOBS:-$(nproc)}"
@@ -50,7 +50,7 @@ cmake --install "$WORK_DIR/hexl/build"
 cmake -S "$WORK_DIR/SEAL" -B "$WORK_DIR/SEAL/build" \
   -DCMAKE_BUILD_TYPE=Release \
   -DSEAL_USE_INTEL_HEXL=ON \
-  -DSEAL_BUILD_DEPS=OFF \
+  -DSEAL_BUILD_DEPS=ON \
   -DSEAL_BUILD_SEAL_C=OFF \
   -DSEAL_BUILD_EXAMPLES=OFF \
   -DSEAL_BUILD_TESTS=OFF \
