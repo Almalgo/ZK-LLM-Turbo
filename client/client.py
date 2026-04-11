@@ -330,7 +330,7 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
                         use_cache=True,
                         position_embeddings=position_embeddings,
                     )
-                    hidden_t = output[0]
+                    hidden_t = output[0] if isinstance(output, (tuple, list)) else output
 
             hidden_states = hidden_t.squeeze(0).float().cpu().numpy()
             position_offset += curr_seq_len

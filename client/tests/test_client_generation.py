@@ -14,9 +14,10 @@ class _FakeTokenizer:
 
 
 class _FakeLayer:
-    def __init__(self, dtype=torch.float32):
+    def __init__(self, dtype=torch.float32, return_tuple=True):
         self._param = torch.nn.Parameter(torch.zeros(1, dtype=dtype))
         self.calls = []
+        self.return_tuple = return_tuple
 
     def parameters(self):
         yield self._param
@@ -25,12 +26,14 @@ class _FakeLayer:
         self.calls.append(kwargs)
         assert kwargs.get("position_embeddings") is not None
         assert hidden_t.dtype == self._param.dtype
-        return (hidden_t,)
+        if self.return_tuple:
+            return (hidden_t,)
+        return hidden_t
 
 
 def test_generate_passes_position_embeddings_to_plaintext_layers(monkeypatch):
     fake_layer0 = _FakeLayer(dtype=torch.float16)
-    fake_layer1 = _FakeLayer(dtype=torch.float16)
+    fake_layer1 = _FakeLayer(dtype=torch.float16, return_tuple=False)
 
     model_config = SimpleNamespace(
         num_hidden_layers=2,
