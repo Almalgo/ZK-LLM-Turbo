@@ -74,6 +74,17 @@ python -m benchmarks.bench_he_matmul
 
 3. Compare results against the non-HEXL baseline from the same machine.
 
+Optional: generate an acceptance report from baseline/candidate benchmark JSONs:
+
+```bash
+python benchmarks/report_hexl_acceptance.py \
+  --baseline benchmarks/results/bench_he_matmul_baseline.json \
+  --candidate benchmarks/results/bench_he_matmul_hexl.json \
+  --output benchmarks/results/hexl_acceptance_report.json
+```
+
+This combines benchmark speedups with linkage probe status in one artifact.
+
 ## Notes
 
 - This is a build-time optimization. The application protocol does not change.
