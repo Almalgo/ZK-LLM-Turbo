@@ -1,3 +1,5 @@
+import os
+
 import torch
 import numpy as np
 from transformers import AutoModelForCausalLM
@@ -6,14 +8,28 @@ _cached_model = None
 _cached_model_name = None
 
 
+def _resolve_model_dtype() -> torch.dtype:
+    dtype_name = os.getenv("ZKLLM_CLIENT_MODEL_DTYPE", "float32").strip().lower()
+    mapping = {
+        "float32": torch.float32,
+        "fp32": torch.float32,
+        "float16": torch.float16,
+        "fp16": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "bf16": torch.bfloat16,
+    }
+    return mapping.get(dtype_name, torch.float32)
+
+
 def load_model(model_name="TinyLlama/TinyLlama-1.1B-Chat-v1.0"):
     """Load and cache the model. Returns the full CausalLM model."""
     global _cached_model, _cached_model_name
     if _cached_model is not None and _cached_model_name == model_name:
         return _cached_model
+    model_dtype = _resolve_model_dtype()
     _cached_model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        torch_dtype=torch.float32,
+        torch_dtype=model_dtype,
         low_cpu_mem_usage=True,
     )
     _cached_model.eval()

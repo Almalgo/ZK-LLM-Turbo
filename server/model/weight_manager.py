@@ -1,3 +1,5 @@
+import os
+
 import torch
 import numpy as np
 from transformers import AutoModelForCausalLM
@@ -13,15 +15,29 @@ _layer_diagonal_weight_cache: dict[int, dict[str, list[list[float]]]] = {}
 MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
 
+def _resolve_model_dtype() -> torch.dtype:
+    dtype_name = os.getenv("ZKLLM_SERVER_MODEL_DTYPE", "float32").strip().lower()
+    mapping = {
+        "float32": torch.float32,
+        "fp32": torch.float32,
+        "float16": torch.float16,
+        "fp16": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "bf16": torch.bfloat16,
+    }
+    return mapping.get(dtype_name, torch.float32)
+
+
 def load_model():
     """Load TinyLlama model at server startup. Caches globally."""
     global _model
     if _model is not None:
         return _model
     logger.info("Loading model", extra={"extra": {"model": MODEL_NAME}})
+    model_dtype = _resolve_model_dtype()
     _model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
-        torch_dtype=torch.float32,
+        torch_dtype=model_dtype,
         low_cpu_mem_usage=True,
     )
     _model.eval()
