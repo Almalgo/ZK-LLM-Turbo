@@ -318,6 +318,7 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
                         )
 
             with torch.no_grad():
+                position_embeddings = components["model"].model.rotary_emb(hidden_t, position_ids)
                 for layer_idx in range(num_encrypted_layers, total_layers):
                     layer = components["layers"][layer_idx]
                     output = layer(
@@ -325,6 +326,7 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
                         position_ids=position_ids,
                         past_key_value=plaintext_cache,
                         use_cache=True,
+                        position_embeddings=position_embeddings,
                     )
                     hidden_t = output[0]
 
