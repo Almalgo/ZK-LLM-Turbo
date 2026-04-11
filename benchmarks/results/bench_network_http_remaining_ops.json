@@ -1,0 +1,109 @@
+{
+  "timestamp": "2026-04-11T06:49:46.246062+00:00",
+  "git_sha": "134bcf325aaca9e37e8643da1b9625c1bbf4a912",
+  "ckks_params": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      40,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776,
+    "use_galois_keys": true,
+    "use_relin_keys": true
+  },
+  "results": [
+    {
+      "name": "o_proj_roundtrip",
+      "mean_ms": 33808.5,
+      "std_ms": 0.0,
+      "samples": 1,
+      "raw_samples_ms": [
+        33808.5
+      ],
+      "metadata": {
+        "serialize_ms": 19.3,
+        "server_ms": 33801.5,
+        "network_ms": 7.0,
+        "deserialize_ms": 3.5,
+        "payload_kb": 1222.6,
+        "response_kb": 1029.3
+      }
+    },
+    {
+      "name": "ffn_gate_up_roundtrip",
+      "mean_ms": 66700.5,
+      "std_ms": 0.0,
+      "samples": 1,
+      "raw_samples_ms": [
+        66700.5
+      ],
+      "metadata": {
+        "serialize_ms": 16.3,
+        "server_ms": 66692.0,
+        "network_ms": 8.5,
+        "deserialize_ms": 7.7,
+        "payload_kb": 1222.7,
+        "response_kb": 2058.5
+      }
+    },
+    {
+      "name": "ffn_down_roundtrip",
+      "mean_ms": 92207.6,
+      "std_ms": 0.0,
+      "samples": 1,
+      "raw_samples_ms": [
+        92207.6
+      ],
+      "metadata": {
+        "serialize_ms": 33.3,
+        "server_ms": 92200.3,
+        "network_ms": 7.3,
+        "deserialize_ms": 3.7,
+        "payload_kb": 2444.7,
+        "response_kb": 1029.5
+      }
+    }
+  ],
+  "metadata": {
+    "server_base_url": "http://127.0.0.1:8001",
+    "layer_idx": 0,
+    "seed": 0,
+    "transport": "http",
+    "selected_operations": [
+      "o_proj",
+      "ffn_gate_up",
+      "ffn_down"
+    ],
+    "operations": {
+      "o_proj": {
+        "serialize_ms": 19.3,
+        "server_ms": 33801.5,
+        "network_ms": 7.0,
+        "deserialize_ms": 3.5,
+        "payload_kb": 1222.6,
+        "response_kb": 1029.3
+      },
+      "ffn_gate_up": {
+        "serialize_ms": 16.3,
+        "server_ms": 66692.0,
+        "network_ms": 8.5,
+        "deserialize_ms": 7.7,
+        "payload_kb": 1222.7,
+        "response_kb": 2058.5
+      },
+      "ffn_down": {
+        "serialize_ms": 33.3,
+        "server_ms": 92200.3,
+        "network_ms": 7.3,
+        "deserialize_ms": 3.7,
+        "payload_kb": 2444.7,
+        "response_kb": 1029.5
+      }
+    }
+  }
+}

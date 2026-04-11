@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-04-11T07:53:32.852283+00:00",
+  "git_sha": "806520c069741c2520f9889bda8d99fb8334cc44",
+  "ckks_params": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      40,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776,
+    "use_galois_keys": true,
+    "use_relin_keys": true
+  },
+  "results": [
+    {
+      "name": "e2e_ms_per_token_layers_1",
+      "mean_ms": 668109.011,
+      "std_ms": 0.0,
+      "samples": 1,
+      "raw_samples_ms": [
+        668109.011
+      ],
+      "metadata": {
+        "encrypted_layers": 1,
+        "num_tokens": 1
+      }
+    }
+  ],
+  "metadata": {
+    "prompt": "Hello world",
+    "samples_per_layer": 1,
+    "transport": "http",
+    "pipeline_mode": "sync"
+  }
+}
