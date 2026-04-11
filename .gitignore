@@ -9,3 +9,5 @@ build/
 .pytest_cache/
 docs/plan.md
 .venv/
+split-inference-env/
+benchmark-server-*.log
