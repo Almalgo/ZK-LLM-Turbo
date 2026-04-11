@@ -405,6 +405,12 @@ Keep HTTP fallback for backward compatibility.
 **Status update (2026-03-29): Implemented.**
 The client now has an async-capable encrypted-layer runner and an opt-in pipelined execution path that reuses pre-fetched encrypted-layer metadata and drives encrypted layer processing through `process_layer_async()`. The protocol remains dependency-correct and preserves a synchronous fallback.
 
+**Live update (2026-04-11):**
+`process_layer_async()` now executes a dedicated async encrypted-layer flow (instead of delegating to sync), and transport/bench harnesses now allow explicit `http|websocket` and `sync|async` mode selection for controlled measurements. Minimal e2e artifacts were added:
+
+- `benchmarks/results/bench_e2e_sync_min.json`
+- `benchmarks/results/bench_e2e_async_min.json`
+
 | | |
 |---|---|
 | **Why** | Overlap client decrypt/process for layer N-1 with server compute for layer N. Approaches `max(server_time, client_time)` instead of `sum(all)`. |
@@ -430,6 +436,21 @@ The client now has an async-capable encrypted-layer runner and an opt-in pipelin
 
 **Status update (2026-03-29): Conditional go.**
 Focused Phase 2 accuracy and transport checks passed, and the `N=16384` merged FFN path is numerically correct relative to its quadratic HE target. The open quality risk is that the merged HE path uses a lower-accuracy quadratic SiLU approximation than the degree-6 client reference. See [T2.6 gate report](T2.6-PHASE-2-ACCURACY-GATE.md).
+
+**Live update (2026-04-11):**
+Prompt-level comparisons and per-operation transport artifacts were added. On short-prompt samples (`1` token, `1` encrypted layer):
+
+- `exact_split` vs `poly_split`: exact matches in sampled runs
+- `exact_split` vs `merged_he`: divergences observed in sampled runs
+
+Artifacts:
+
+- `benchmarks/results/phase2_accuracy_gate_live_exact_vs_poly_two_short.json`
+- `benchmarks/results/phase2_accuracy_gate_live_exact_vs_merged_two_short.json`
+- `benchmarks/results/bench_network_http_qkv.json`
+- `benchmarks/results/bench_network_http_remaining_ops.json`
+- `benchmarks/results/bench_network_websocket_qkv.json`
+- `benchmarks/results/bench_network_websocket_remaining_ops.json`
 
 | | |
 |---|---|
