@@ -297,8 +297,10 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
 
             # --- Plaintext layers ---
             t0 = time.perf_counter()
-            device = next(components["layers"][0].parameters()).device
-            hidden_t = torch.tensor(hidden_states, dtype=torch.float32, device=device).unsqueeze(0)
+            layer_param = next(components["layers"][0].parameters())
+            device = layer_param.device
+            layer_dtype = layer_param.dtype
+            hidden_t = torch.tensor(hidden_states, dtype=layer_dtype, device=device).unsqueeze(0)
             position_ids = torch.arange(
                 position_offset, position_offset + curr_seq_len, device=device
             ).unsqueeze(0)
@@ -330,7 +332,7 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
                     )
                     hidden_t = output[0]
 
-            hidden_states = hidden_t.squeeze(0).numpy()
+            hidden_states = hidden_t.squeeze(0).float().cpu().numpy()
             position_offset += curr_seq_len
             stats["plaintext"] += time.perf_counter() - t0
 
