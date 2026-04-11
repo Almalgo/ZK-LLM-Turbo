@@ -1,6 +1,5 @@
-from pathlib import Path
-
 from server import server
+from common import hexl_probe
 
 
 def test_binary_mentions_hexl_from_strings(monkeypatch, tmp_path):
@@ -20,9 +19,9 @@ def test_binary_mentions_hexl_from_strings(monkeypatch, tmp_path):
             return Proc(stdout="")
         return Proc(stdout="SEAL_USE_INTEL_HEXL")
 
-    monkeypatch.setattr(server.subprocess, "run", fake_run)
+    monkeypatch.setattr(hexl_probe.subprocess, "run", fake_run)
 
-    assert server._binary_mentions_hexl(binary) is True
+    assert hexl_probe.binary_mentions_hexl(binary) is True
     assert calls == ["ldd", "strings"]
 
 
@@ -36,12 +35,12 @@ def test_binary_mentions_hexl_false_when_no_markers(monkeypatch, tmp_path):
             self.stderr = stderr
 
     monkeypatch.setattr(
-        server.subprocess,
+        hexl_probe.subprocess,
         "run",
         lambda cmd, capture_output, text, check: Proc(stdout="", stderr=""),
     )
 
-    assert server._binary_mentions_hexl(binary) is False
+    assert hexl_probe.binary_mentions_hexl(binary) is False
 
 
 def test_find_tenseal_binaries_dedupes(monkeypatch, tmp_path):
@@ -56,9 +55,34 @@ def test_find_tenseal_binaries_dedupes(monkeypatch, tmp_path):
     class Spec:
         origin = str(init_py)
 
-    monkeypatch.setattr(server.importlib.util, "find_spec", lambda name: Spec())
+    monkeypatch.setattr(hexl_probe.importlib.util, "find_spec", lambda name: Spec())
 
-    paths = server._find_tenseal_binaries()
+    paths = hexl_probe.find_tenseal_binaries()
 
     assert site_dir / "libtenseal.so" in paths
     assert site_dir / "_sealapi_cpp.test.so" in paths
+
+
+def test_server_check_hexl_logs_linked(monkeypatch):
+    records = []
+
+    def fake_info(msg, extra=None):
+        records.append(("info", msg, extra))
+
+    monkeypatch.setattr(
+        server,
+        "probe_hexl_linkage",
+        lambda: {
+            "avx512_detected": True,
+            "probed_binaries": ["/tmp/libtenseal.so"],
+            "linked_binaries": ["/tmp/libtenseal.so"],
+            "hexl_linked": True,
+        },
+    )
+    monkeypatch.setattr(server.logger, "info", fake_info)
+
+    server._check_hexl()
+
+    assert records
+    assert records[0][0] == "info"
+    assert records[0][1] == "Intel HEXL linked"

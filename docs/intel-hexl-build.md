@@ -24,6 +24,7 @@ Check the current runtime probe:
 
 ```bash
 python -m server.server
+python scripts/probe_hexl_linkage.py --json
 ```
 
 At startup the server now reports one of:

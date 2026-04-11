@@ -31,7 +31,7 @@ clone_or_update() {
   else
     git -C "$target_dir" fetch --depth 1 origin "$ref"
     git -C "$target_dir" checkout "$ref"
-    git -C "$target_dir" reset --hard "origin/$ref" || true
+    git -C "$target_dir" pull --ff-only origin "$ref"
   fi
 }
 
