@@ -1,0 +1,94 @@
+{
+  "ckks": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      40,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776
+  },
+  "activation": {
+    "reference_degree6": {
+      "name": "reference_degree6",
+      "mae": 0.012314660474658012,
+      "max_abs_error": 0.040440693497657776,
+      "rmse": 0.013877659104764462
+    },
+    "he_quadratic": {
+      "name": "he_quadratic",
+      "mae": 0.13966020941734314,
+      "max_abs_error": 0.3346584439277649,
+      "rmse": 0.1573258489370346
+    }
+  },
+  "merged_ffn_small_dim": {
+    "samples": 3,
+    "mean_mae": 2.050203207204504e-08,
+    "mean_max_abs_error": 4.6488518516222634e-08,
+    "mean_rmse": 2.4923737740323304e-08
+  },
+  "prompt_mode_comparison": {
+    "enabled": true,
+    "num_prompts": 2,
+    "num_tokens": 1,
+    "num_encrypted_layers": 1,
+    "transport": "http",
+    "pipeline_mode": "sync",
+    "comparison_modes": [
+      "exact_split",
+      "poly_split"
+    ],
+    "prompts": [
+      {
+        "prompt": "Hello world",
+        "exact_split": {
+          "generated_token_ids": [
+            29991
+          ],
+          "generated_text": "!"
+        },
+        "comparisons": {
+          "poly_split": {
+            "token_agreement": 1.0,
+            "exact_match": true,
+            "generated_token_ids": [
+              29991
+            ],
+            "generated_text": "!"
+          }
+        }
+      },
+      {
+        "prompt": "Hi",
+        "exact_split": {
+          "generated_token_ids": [
+            29892
+          ],
+          "generated_text": ","
+        },
+        "comparisons": {
+          "poly_split": {
+            "token_agreement": 1.0,
+            "exact_match": true,
+            "generated_token_ids": [
+              29892
+            ],
+            "generated_text": ","
+          }
+        }
+      }
+    ],
+    "failures": [],
+    "aggregate": {
+      "poly_split": {
+        "mean_token_agreement": 1.0,
+        "exact_match_rate": 1.0
+      }
+    }
+  }
+}
