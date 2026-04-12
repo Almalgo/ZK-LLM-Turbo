@@ -19,6 +19,30 @@ TENSEAL_REF="${TENSEAL_REF:-v0.3.15}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 JOBS="${JOBS:-$(nproc)}"
 
+require_cmd() {
+  local cmd="$1"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "Missing required command: $cmd" >&2
+    exit 1
+  fi
+}
+
+check_python_headers() {
+  local include_dir
+  include_dir="$($PYTHON_BIN -c 'import sysconfig; print(sysconfig.get_paths().get("include", ""))')"
+  if [[ -z "$include_dir" || ! -f "$include_dir/Python.h" ]]; then
+    echo "Python development headers not found for interpreter: $PYTHON_BIN" >&2
+    echo "Expected header: $include_dir/Python.h" >&2
+    echo "Install the matching python-dev package (for example: python3.12-dev) and retry." >&2
+    exit 1
+  fi
+}
+
+require_cmd git
+require_cmd cmake
+require_cmd "$PYTHON_BIN"
+check_python_headers
+
 mkdir -p "$WORK_DIR" "$PREFIX_DIR" "$WHEEL_DIR"
 
 clone_or_update() {

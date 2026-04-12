@@ -66,7 +66,7 @@ Outputs:
 - local install prefix under `.local/tenseal-hexl/`
 - built wheel under `dist/hexl/`
 
-If wheel build fails with a message about missing `/usr/include/pythonX.Y`, install Python dev headers for that exact interpreter version and rerun the script.
+The script now runs a preflight check for Python development headers (`Python.h`) and fails early with a clear message if they are missing.
 
 ## Install The Built Wheel
 
