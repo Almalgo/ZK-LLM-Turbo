@@ -500,6 +500,7 @@ Core runtime modules already route through [`common/he_backend.py`](common/he_ba
 Initial backend-level smoke benchmark artifact:
 
 - `benchmarks/results/bench_he_matmul_backend_openfhe_smoke.json`
+- `benchmarks/results/compare_he_backend_matmul_smoke.json`
 
 | | |
 |---|---|
