@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-04-12T11:58:01Z",
+  "dims": [
+    {
+      "d_in": 1024,
+      "d_out": 256
+    }
+  ],
+  "params": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776
+  },
+  "backends": [
+    {
+      "backend": "tenseal",
+      "ok": true,
+      "results": [
+        {
+          "name": "1024x256",
+          "mean_ms": 6033.11,
+          "mae": 3.8442600214239064e-09,
+          "max_abs_error": 1.862645149230957e-08
+        }
+      ],
+      "error": null
+    },
+    {
+      "backend": "openfhe",
+      "ok": true,
+      "results": [
+        {
+          "name": "1024x256",
+          "mean_ms": 103758.685,
+          "mae": 2.035953627910203e-09,
+          "max_abs_error": 7.334165275096893e-09
+        }
+      ],
+      "error": null
+    }
+  ]
+}

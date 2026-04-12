@@ -502,8 +502,15 @@ Initial backend-level smoke benchmark artifact:
 - `benchmarks/results/bench_he_matmul_backend_openfhe_smoke.json`
 - `benchmarks/results/compare_he_backend_matmul_smoke.json`
 - `benchmarks/results/compare_he_backend_matmul_medium.json`
+- `benchmarks/results/compare_he_backend_matmul_512x256.json`
+- `benchmarks/results/compare_he_backend_matmul_1024x256.json`
+- `benchmarks/results/compare_he_backend_matmul_2048x256.json`
+- `benchmarks/results/compare_he_backend_matmul_tenseal_2048x1024.json`
+- `benchmarks/results/compare_he_backend_matmul_openfhe_2048x1024.json`
+- `benchmarks/results/compare_he_backend_matmul_tenseal_2048x2048.json`
+- `benchmarks/results/compare_he_backend_matmul_openfhe_2048x2048.json`
 
-Current signal from these artifacts: numerical parity is strong on sampled dimensions, but OpenFHE runtime is still far slower than TenSEAL in the current matmul implementation.
+Current signal from these artifacts: numerical parity is strong on sampled dimensions, but OpenFHE runtime is still far slower than TenSEAL in the current matmul implementation (for example, ~32x slower at `2048x2048`).
 
 | | |
 |---|---|

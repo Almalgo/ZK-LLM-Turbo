@@ -1,0 +1,34 @@
+{
+  "timestamp": "2026-04-12T15:15:56Z",
+  "dims": [
+    {
+      "d_in": 2048,
+      "d_out": 2048
+    }
+  ],
+  "params": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776
+  },
+  "backends": [
+    {
+      "backend": "tenseal",
+      "ok": true,
+      "results": [
+        {
+          "name": "2048x2048",
+          "mean_ms": 15208.438,
+          "mae": 5.52882006843447e-09,
+          "max_abs_error": 2.514570951461792e-08
+        }
+      ],
+      "error": null
+    }
+  ]
+}
