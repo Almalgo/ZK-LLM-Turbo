@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-04-12T10:13:23.686262+00:00",
+  "inputs": {
+    "base": "benchmarks/results/phase2_accuracy_gate.json",
+    "live_merged": "benchmarks/results/phase2_accuracy_gate_live_exact_vs_merged_five_short.json",
+    "live_poly": "benchmarks/results/phase2_accuracy_gate_live_exact_vs_poly_five_short.json"
+  },
+  "summary": {
+    "activation": {
+      "reference_degree6_mae": 0.012314660474658012,
+      "he_quadratic_mae": 0.13966020941734314,
+      "he_vs_reference_mae_ratio": 11.340971170479762,
+      "reference_degree6_max_abs_error": 0.040440693497657776,
+      "he_quadratic_max_abs_error": 0.3346584439277649
+    },
+    "merged_ffn_small_dim": {
+      "samples": 3,
+      "mean_mae": 1.944782646035037e-08,
+      "mean_max_abs_error": 4.1676685214042664e-08
+    },
+    "prompt_level": {
+      "merged_he": {
+        "exact_match_rate": 0.0,
+        "mean_token_agreement": 0.0
+      },
+      "poly_split": {
+        "exact_match_rate": 0.8,
+        "mean_token_agreement": 0.8
+      }
+    },
+    "failures": {
+      "merged_he": [],
+      "poly_split": []
+    }
+  },
+  "decision": {
+    "decision": "conditional_go",
+    "systems_go": true,
+    "quality_parity_go": false,
+    "max_small_dim_mae": 1e-05,
+    "min_merged_exact_match_rate": 0.8,
+    "reasons": [
+      "Merged HE prompt exact-match rate 0.000 is below threshold 0.800."
+    ]
+  }
+}

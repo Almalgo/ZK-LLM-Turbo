@@ -454,6 +454,13 @@ Artifacts:
 - `benchmarks/results/bench_network_websocket_qkv.json`
 - `benchmarks/results/bench_network_websocket_remaining_ops.json`
 
+**Live update (2026-04-12):**
+An explicit gate-decision artifact was added:
+
+- `benchmarks/results/phase2_gate_decision_report.json`
+
+The report records `decision=conditional_go` with `systems_go=true` and `quality_parity_go=false` based on current saved artifacts.
+
 | | |
 |---|---|
 | **Why** | Validate all Phase 2 changes maintain acceptable accuracy before Phase 3's invasive migration. |
