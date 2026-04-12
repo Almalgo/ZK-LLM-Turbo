@@ -1,0 +1,15 @@
+{
+  "selected_backend": "tenseal",
+  "openfhe_available": true,
+  "openfhe_import_error": null,
+  "probe_passed": true,
+  "steps": {
+    "create_context": true,
+    "serialize_public_context": true,
+    "context_from_public_bytes": true,
+    "encrypt_decrypt_roundtrip": true,
+    "square": true,
+    "matmul": true
+  },
+  "error": null
+}

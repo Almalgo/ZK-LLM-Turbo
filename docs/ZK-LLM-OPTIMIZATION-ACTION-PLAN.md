@@ -494,8 +494,8 @@ The report records `decision=conditional_go` with `systems_go=true` and `quality
 
 ### T3.1 -- TenSEAL -> OpenFHE Migration
 
-**Status update (2026-04-12): Partial OpenFHE vector path landed; matmul remains blocked.**
-Core runtime modules already route through [`common/he_backend.py`](common/he_backend.py), and the backend now has an explicit OpenFHE vector path for context creation, public-context serialization, encrypt/decrypt, vector serialization, cloning, and `square()`. `matmul()` is still not implemented for OpenFHE, so production inference remains TenSEAL-only. See [T3.1 environment finding](T3.1-OPENFHE-ENV-FINDING.md) and the [OpenFHE matmul implementation plan](T3.1-OPENFHE-MATMUL-PLAN.md).
+**Status update (2026-04-12): OpenFHE vector path and initial matmul landed; still experimental.**
+Core runtime modules already route through [`common/he_backend.py`](common/he_backend.py), and the backend now has an explicit OpenFHE path for context creation, public-context serialization, encrypt/decrypt, vector serialization, cloning, `square()`, and an initial `matmul()` implementation (`EvalInnerProduct` + `EvalMerge`). A local smoke probe artifact now passes for these operations (`benchmarks/results/openfhe_probe.json`), but production inference remains TenSEAL-default until larger-dimension benchmark and parity validation is complete. See [T3.1 environment finding](T3.1-OPENFHE-ENV-FINDING.md) and the [OpenFHE matmul implementation plan](T3.1-OPENFHE-MATMUL-PLAN.md).
 
 | | |
 |---|---|
