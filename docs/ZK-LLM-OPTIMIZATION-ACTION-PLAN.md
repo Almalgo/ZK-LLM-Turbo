@@ -525,8 +525,8 @@ Initial backend-level smoke benchmark artifact:
 
 ### T3.2 -- Diagonal Packing MatMul (THOR-style)
 
-**Status update (2026-03-29): Preprocessing groundwork landed; runtime blocked.**
-Per-layer cyclic diagonal extraction and caching are now implemented in `weight_manager.py`, but the actual packed-matmul runtime remains blocked on a working post-TenSEAL backend. See [T3.2 status](T3.2-DIAGONAL-PACKING-STATUS.md).
+**Status update (2026-04-12): Preprocessing groundwork landed; runtime still blocked.**
+Per-layer cyclic diagonal extraction and caching are now implemented in `weight_manager.py`. The backend migration now has an initial OpenFHE matmul path, but the actual packed-matmul runtime remains blocked on larger-dimension OpenFHE parity/performance validation. See [T3.2 status](T3.2-DIAGONAL-PACKING-STATUS.md).
 
 | | |
 |---|---|
