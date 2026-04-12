@@ -497,6 +497,10 @@ The report records `decision=conditional_go` with `systems_go=true` and `quality
 **Status update (2026-04-12): OpenFHE vector path and initial matmul landed; still experimental.**
 Core runtime modules already route through [`common/he_backend.py`](common/he_backend.py), and the backend now has an explicit OpenFHE path for context creation, public-context serialization, encrypt/decrypt, vector serialization, cloning, `square()`, and an initial `matmul()` implementation (`EvalInnerProduct` + `EvalMerge`). A local smoke probe artifact now passes for these operations (`benchmarks/results/openfhe_probe.json`), but production inference remains TenSEAL-default until larger-dimension benchmark and parity validation is complete. See [T3.1 environment finding](T3.1-OPENFHE-ENV-FINDING.md) and the [OpenFHE matmul implementation plan](T3.1-OPENFHE-MATMUL-PLAN.md).
 
+Initial backend-level smoke benchmark artifact:
+
+- `benchmarks/results/bench_he_matmul_backend_openfhe_smoke.json`
+
 | | |
 |---|---|
 | **Why** | TenSEAL is CPU-only, no bootstrapping, no diagonal packing, limited maintenance since 2022. OpenFHE supports all of these plus GPU extensions. This is the **most critical Phase 3 prerequisite**. |

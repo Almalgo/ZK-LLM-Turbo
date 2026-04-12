@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-04-12T10:57:46.130701+00:00",
+  "git_sha": "ad850fdd270d2dfbe6a62b00e6275d484da43ff6",
+  "ckks_params": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776,
+    "use_galois_keys": true,
+    "use_relin_keys": true
+  },
+  "results": [
+    {
+      "name": "he_backend_matmul_8x4",
+      "mean_ms": 574.783,
+      "std_ms": 0.0,
+      "samples": 1,
+      "raw_samples_ms": [
+        574.783
+      ]
+    }
+  ],
+  "metadata": {
+    "matrix_source": "synthetic",
+    "seed": 0,
+    "backend": "openfhe"
+  }
+}
