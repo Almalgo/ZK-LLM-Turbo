@@ -11,6 +11,7 @@ from server.model.weight_manager import load_model
 import uvicorn
 from dotenv import load_dotenv
 from common.logging_utils import get_logger
+from common.he_backend import get_backend_status
 from common.hexl_probe import probe_hexl_linkage
 
 logger = get_logger("server")
@@ -50,11 +51,29 @@ def _check_hexl():
         )
 
 
+def _check_he_backend():
+    status = get_backend_status()
+    selected_backend = status["selected_backend"]
+
+    if selected_backend == "openfhe":
+        logger.warning(
+            "OpenFHE backend selected, but inference matmul is not implemented; production inference remains TenSEAL-only.",
+            extra={"extra": status},
+        )
+        return
+
+    logger.info(
+        "HE backend status",
+        extra={"extra": status},
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load model at startup, cleanup on shutdown."""
     logger.info("Server starting — loading model...")
     load_model()
+    _check_he_backend()
     _check_hexl()
     session_cfg = load_session_config()
 
