@@ -488,7 +488,7 @@ Artifacts:
 ### T3.1 -- TenSEAL -> OpenFHE Migration
 
 **Status update (2026-04-12): Partial OpenFHE vector path landed; matmul remains blocked.**
-Core runtime modules already route through [`common/he_backend.py`](common/he_backend.py), and the backend now has an explicit OpenFHE vector path for context creation, public-context serialization, encrypt/decrypt, vector serialization, cloning, and `square()`. `matmul()` is still not implemented for OpenFHE, so production inference remains TenSEAL-only. See [T3.1 environment finding](T3.1-OPENFHE-ENV-FINDING.md).
+Core runtime modules already route through [`common/he_backend.py`](common/he_backend.py), and the backend now has an explicit OpenFHE vector path for context creation, public-context serialization, encrypt/decrypt, vector serialization, cloning, and `square()`. `matmul()` is still not implemented for OpenFHE, so production inference remains TenSEAL-only. See [T3.1 environment finding](T3.1-OPENFHE-ENV-FINDING.md) and the [OpenFHE matmul implementation plan](T3.1-OPENFHE-MATMUL-PLAN.md).
 
 | | |
 |---|---|
