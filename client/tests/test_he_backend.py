@@ -4,11 +4,13 @@ import pytest
 from common.he_backend import (
     OPENFHE_AVAILABLE,
     OPENFHE_IMPORT_ERROR,
+    clone_vector,
     create_context,
     decrypt_vector,
     encrypt_vector,
     get_backend_name,
     get_backend_status,
+    square,
     serialize_public_context,
     serialize_vector,
     vector_from_bytes,
@@ -122,3 +124,50 @@ def test_openfhe_matmul_raises_not_implemented():
 
     with pytest.raises(NotImplementedError):
         he_backend.matmul({"backend": "openfhe"}, [[1.0]])
+
+
+def test_openfhe_clone_and_square_preserve_wrapper(monkeypatch):
+    from common import he_backend
+
+    class FakeCiphertext:
+        def __init__(self, raw: bytes):
+            self.raw = raw
+
+    class FakeContext:
+        def EvalMult(self, lhs, rhs):
+            assert lhs.raw == rhs.raw
+            return FakeCiphertext(lhs.raw + b"-sq")
+
+    class FakeOpenFHE:
+        BINARY = "binary"
+
+        @staticmethod
+        def Serialize(ciphertext, _mode):
+            return ciphertext.raw
+
+        @staticmethod
+        def DeserializeCiphertextString(raw, _mode):
+            return FakeCiphertext(raw)
+
+    monkeypatch.setattr(he_backend, "_openfhe", FakeOpenFHE())
+    monkeypatch.setattr(he_backend, "OPENFHE_AVAILABLE", True)
+
+    vector = {
+        "backend": "openfhe",
+        "context": FakeContext(),
+        "public_key": "pk",
+        "secret_key": "sk",
+        "ciphertext": FakeCiphertext(b"enc"),
+        "length": 3,
+    }
+
+    cloned = clone_vector(vector)
+    assert cloned["backend"] == "openfhe"
+    assert cloned["length"] == 3
+    assert cloned["ciphertext"] is not vector["ciphertext"]
+    assert cloned["ciphertext"].raw == b"enc"
+
+    squared = square(vector)
+    assert squared["backend"] == "openfhe"
+    assert squared["length"] == 3
+    assert squared["ciphertext"].raw == b"enc-sq"
