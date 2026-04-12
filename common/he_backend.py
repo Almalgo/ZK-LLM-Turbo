@@ -7,6 +7,7 @@ import subprocess
 from typing import Any
 
 import msgpack
+import numpy as np
 import tenseal as ts
 
 HEContext = Any
@@ -94,18 +95,24 @@ def create_context(
         context.Enable(_openfhe.PKE)
         context.Enable(_openfhe.KEYSWITCH)
         context.Enable(_openfhe.LEVELEDSHE)
+        context.Enable(_openfhe.ADVANCEDSHE)
 
         keypair = context.KeyGen()
         if use_relin_keys:
             context.EvalMultKeyGen(keypair.secretKey)
+        eval_sum_keys_generated = False
         if use_galois_keys:
             context.EvalRotateKeyGen(keypair.secretKey, [1, -1])
+            context.EvalSumKeyGen(keypair.secretKey)
+            eval_sum_keys_generated = True
 
         return {
             "backend": "openfhe",
             "context": context,
             "public_key": keypair.publicKey,
             "secret_key": keypair.secretKey,
+            "rotate_keys_max_index": 1 if use_galois_keys else 0,
+            "eval_sum_keys_generated": eval_sum_keys_generated,
         }
 
     raise RuntimeError(
@@ -137,6 +144,8 @@ def context_from_public_bytes(ctx_bytes: bytes) -> HEContext:
             "context": context,
             "public_key": public_key,
             "secret_key": None,
+            "rotate_keys_max_index": 0,
+            "eval_sum_keys_generated": False,
         }
 
     raise RuntimeError(
@@ -173,6 +182,8 @@ def encrypt_vector(context: HEContext, values) -> HEVector:
             "secret_key": context.get("secret_key"),
             "ciphertext": ciphertext,
             "length": len(values),
+            "rotate_keys_max_index": int(context.get("rotate_keys_max_index", 0)),
+            "eval_sum_keys_generated": bool(context.get("eval_sum_keys_generated", False)),
         }
     return ts.ckks_vector(context, list(values))
 
@@ -215,6 +226,8 @@ def vector_from_bytes(context: HEContext, raw: bytes) -> HEVector:
             "secret_key": context.get("secret_key"),
             "ciphertext": ciphertext,
             "length": length,
+            "rotate_keys_max_index": int(context.get("rotate_keys_max_index", 0)),
+            "eval_sum_keys_generated": bool(context.get("eval_sum_keys_generated", False)),
         }
     return ts.ckks_vector_from(context, raw)
 
@@ -233,7 +246,34 @@ def clone_vector(vector: HEVector) -> HEVector:
 
 def matmul(vector: HEVector, matrix) -> HEVector:
     if isinstance(vector, dict) and vector.get("backend") == "openfhe":
-        raise NotImplementedError("OpenFHE backend matmul is not implemented yet")
+        context = vector["context"]
+        secret_key = vector.get("secret_key")
+        if secret_key is None:
+            raise RuntimeError("OpenFHE matmul requires secret_key in backend context")
+
+        if isinstance(matrix, list):
+            matrix_np = np.array(matrix, dtype=np.float64)
+        else:
+            matrix_np = matrix
+
+        if len(matrix_np.shape) != 2:
+            raise ValueError("matrix must be 2D")
+
+        d_in, d_out = matrix_np.shape
+        _ensure_openfhe_eval_sum_keys(vector)
+        _ensure_openfhe_rotate_keys(vector, max(1, d_out - 1))
+
+        inner_products = []
+        for col_idx in range(d_out):
+            plaintext_col = context.MakeCKKSPackedPlaintext(matrix_np[:, col_idx].tolist())
+            inner = context.EvalInnerProduct(vector["ciphertext"], plaintext_col, d_in)
+            inner_products.append(inner)
+
+        merged = context.EvalMerge(inner_products)
+        result = dict(vector)
+        result["ciphertext"] = merged
+        result["length"] = int(d_out)
+        return result
     if isinstance(matrix, list):
         return vector.mm(matrix)
     return vector.mm(matrix.tolist())
@@ -246,3 +286,28 @@ def square(vector: HEVector) -> HEVector:
         result["ciphertext"] = squared
         return result
     return vector.square()
+
+
+def _ensure_openfhe_eval_sum_keys(vector: dict[str, Any]) -> None:
+    if vector.get("eval_sum_keys_generated"):
+        return
+    secret_key = vector.get("secret_key")
+    if secret_key is None:
+        raise RuntimeError("OpenFHE EvalSumKeyGen requires secret_key")
+    vector["context"].EvalSumKeyGen(secret_key)
+    vector["eval_sum_keys_generated"] = True
+
+
+def _ensure_openfhe_rotate_keys(vector: dict[str, Any], max_index: int) -> None:
+    current_max = int(vector.get("rotate_keys_max_index", 0))
+    if max_index <= current_max:
+        return
+
+    secret_key = vector.get("secret_key")
+    if secret_key is None:
+        raise RuntimeError("OpenFHE EvalRotateKeyGen requires secret_key")
+
+    start = max(current_max + 1, 1)
+    indices = list(range(start, max_index + 1)) + list(range(-start, -max_index - 1, -1))
+    vector["context"].EvalRotateKeyGen(secret_key, indices)
+    vector["rotate_keys_max_index"] = max_index

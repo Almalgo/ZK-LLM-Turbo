@@ -37,10 +37,13 @@ def _make_context():
 
 
 class TestHEMatmul:
-    def test_openfhe_vector_matmul_not_implemented(self):
-        """OpenFHE vectors should fail with explicit unsupported error."""
-        with pytest.raises(NotImplementedError):
-            he_matmul({"backend": "openfhe"}, np.array([[1.0]], dtype=np.float32))
+    def test_openfhe_vector_matmul_requires_secret_key(self):
+        """OpenFHE vectors should fail cleanly without server secret key."""
+        with pytest.raises(RuntimeError):
+            he_matmul(
+                {"backend": "openfhe", "context": object(), "ciphertext": object(), "secret_key": None},
+                np.array([[1.0]], dtype=np.float32),
+            )
 
     def test_small_matmul(self, ckks_context):
         """Small-dimension matmul should match plaintext."""

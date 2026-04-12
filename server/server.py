@@ -57,7 +57,7 @@ def _check_he_backend():
 
     if selected_backend == "openfhe":
         logger.warning(
-            "OpenFHE backend selected, but inference matmul is not implemented; production inference remains TenSEAL-only.",
+            "OpenFHE backend selected. Matmul path is experimental and not yet benchmark-validated for production.",
             extra={"extra": status},
         )
         return
