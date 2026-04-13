@@ -8,14 +8,23 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 
-def _load_rows(path: Path) -> dict[str, dict]:
+def _load_rows(path: Path) -> tuple[dict[str, dict], list[dict]]:
     payload = json.loads(path.read_text())
     rows: dict[str, dict] = {}
+    failures: list[dict] = []
     for backend_entry in payload.get("backends", []):
         backend = backend_entry.get("backend")
+        if backend_entry.get("ok") is False:
+            failures.append(
+                {
+                    "artifact": str(path),
+                    "backend": backend,
+                    "error": backend_entry.get("error"),
+                }
+            )
         for result in backend_entry.get("results", []):
             rows[f"{backend}:{result.get('name')}"] = result
-    return rows
+    return rows, failures
 
 
 def _join_metrics(tenseal_rows: dict[str, dict], openfhe_rows: dict[str, dict]) -> list[dict]:
@@ -52,12 +61,20 @@ def _join_metrics(tenseal_rows: dict[str, dict], openfhe_rows: dict[str, dict]) 
     return joined
 
 
-def _decision(joined: list[dict], max_allowed_slowdown: float, max_allowed_mae: float) -> dict:
+def _decision(
+    joined: list[dict],
+    max_allowed_slowdown: float,
+    max_allowed_mae: float,
+    failures: list[dict],
+) -> dict:
     reasons = []
+    if failures:
+        reasons.append("One or more backend artifact runs failed.")
+
     if not joined:
         return {
             "decision": "no_go",
-            "reasons": ["No overlapping dimensions between TenSEAL and OpenFHE artifacts."],
+            "reasons": reasons + ["No overlapping dimensions between TenSEAL and OpenFHE artifacts."],
         }
 
     worst_slowdown = max(item["openfhe_slowdown_vs_tenseal"] for item in joined)
@@ -76,13 +93,14 @@ def _decision(joined: list[dict], max_allowed_slowdown: float, max_allowed_mae: 
         )
 
     return {
-        "decision": "go" if perf_ok and accuracy_ok else "no_go",
+        "decision": "go" if perf_ok and accuracy_ok and not failures else "no_go",
         "performance_ok": perf_ok,
         "accuracy_ok": accuracy_ok,
         "worst_slowdown": worst_slowdown,
         "worst_openfhe_mae": worst_openfhe_mae,
         "max_allowed_slowdown": max_allowed_slowdown,
         "max_allowed_mae": max_allowed_mae,
+        "failures": failures,
         "reasons": reasons,
     }
 
@@ -124,19 +142,30 @@ def main() -> None:
     args = parser.parse_args()
 
     tenseal_rows = {}
+    tenseal_failures: list[dict] = []
     for token in args.tenseal_artifacts.split(","):
         token = token.strip()
         if token:
-            tenseal_rows.update(_load_rows(Path(token)))
+            rows, failures = _load_rows(Path(token))
+            tenseal_rows.update(rows)
+            tenseal_failures.extend(failures)
 
     openfhe_rows = {}
+    openfhe_failures: list[dict] = []
     for token in args.openfhe_artifacts.split(","):
         token = token.strip()
         if token:
-            openfhe_rows.update(_load_rows(Path(token)))
+            rows, failures = _load_rows(Path(token))
+            openfhe_rows.update(rows)
+            openfhe_failures.extend(failures)
 
     joined = _join_metrics(tenseal_rows, openfhe_rows)
-    decision = _decision(joined, args.max_allowed_slowdown, args.max_allowed_mae)
+    decision = _decision(
+        joined,
+        args.max_allowed_slowdown,
+        args.max_allowed_mae,
+        failures=tenseal_failures + openfhe_failures,
+    )
 
     report = {
         "timestamp": datetime.now(UTC).isoformat(),
