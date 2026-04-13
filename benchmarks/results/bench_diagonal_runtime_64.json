@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-04-13T12:36:10.700365+00:00",
+  "git_sha": "727a6c3a599d2a2753ca033d5d2f61f78ed5073a",
+  "ckks_params": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      40,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776,
+    "use_galois_keys": true,
+    "use_relin_keys": true
+  },
+  "results": [
+    {
+      "name": "dense_matmul_64x64",
+      "mean_ms": 833.607,
+      "std_ms": 39.73,
+      "samples": 2,
+      "raw_samples_ms": [
+        805.514,
+        861.7
+      ]
+    },
+    {
+      "name": "diagonal_runtime_prototype_64x64",
+      "mean_ms": 971.966,
+      "std_ms": 50.376,
+      "samples": 2,
+      "raw_samples_ms": [
+        936.345,
+        1007.587
+      ]
+    }
+  ],
+  "metadata": {
+    "seed": 0,
+    "dim": 64,
+    "diagonal_runtime_slowdown_vs_dense": 1.166
+  }
+}

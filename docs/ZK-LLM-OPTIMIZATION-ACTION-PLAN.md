@@ -546,6 +546,10 @@ Readiness artifact:
 **Status update (2026-04-13): Preprocessing and runtime prototype landed; optimized runtime still blocked.**
 Per-layer cyclic diagonal extraction and caching are implemented in `weight_manager.py`, and a correctness-oriented `he_matmul_diagonal()` runtime prototype is now present in `he_ops.py`. The optimized packed-matmul runtime remains blocked on larger-dimension OpenFHE parity/performance validation plus packed-kernel implementation work. See [T3.2 status](T3.2-DIAGONAL-PACKING-STATUS.md).
 
+Prototype benchmark artifact:
+
+- `benchmarks/results/bench_diagonal_runtime_64.json`
+
 | | |
 |---|---|
 | **Why** | Standard CKKS matrix-vector multiply: O(D) rotations. Baby-step/giant-step diagonal packing: O(sqrt(D)). For D=2048: ~45 rotations vs ~2048. **Corrected estimate: 5-15x** matmul speedup. |
