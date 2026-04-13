@@ -636,6 +636,8 @@ The one-request / one-response protocol is not implementable yet because both GP
 **Status update (2026-04-13): No-go for Phase 4 (artifact-backed).**
 Phase 3 still does not meet backend, polynomial-model, and non-interactive readiness gates; see `benchmarks/results/t3_phase3_gate.json` and [T3.6 gate report](T3.6-PHASE-3-ACCURACY-GATE.md).
 
+Decision thresholds are documented in [T3-DECISION-CRITERIA.md](T3-DECISION-CRITERIA.md).
+
 | | |
 |---|---|
 | **Effort** | 3 days |

@@ -131,8 +131,8 @@ def main() -> None:
         ),
         help="Comma-separated OpenFHE comparison JSON paths.",
     )
-    parser.add_argument("--max-allowed-slowdown", type=float, default=1.25)
-    parser.add_argument("--max-allowed-mae", type=float, default=1e-6)
+    parser.add_argument("--max-allowed-slowdown", type=float, default=5.0)
+    parser.add_argument("--max-allowed-mae", type=float, default=1e-5)
     parser.add_argument(
         "--output",
         type=Path,

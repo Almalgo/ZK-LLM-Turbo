@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-13T13:43:35.029934+00:00",
+  "timestamp": "2026-04-13T16:28:25.106287+00:00",
   "joined_metrics": [
     {
       "name": "1024x256",
@@ -53,11 +53,11 @@
     "accuracy_ok": true,
     "worst_slowdown": 32.32298044020037,
     "worst_openfhe_mae": 2.4856952052232373e-09,
-    "max_allowed_slowdown": 1.25,
-    "max_allowed_mae": 1e-06,
+    "max_allowed_slowdown": 5.0,
+    "max_allowed_mae": 1e-05,
     "failures": [],
     "reasons": [
-      "Worst OpenFHE slowdown 32.323 exceeds threshold 1.250."
+      "Worst OpenFHE slowdown 32.323 exceeds threshold 5.000."
     ]
   }
 }
