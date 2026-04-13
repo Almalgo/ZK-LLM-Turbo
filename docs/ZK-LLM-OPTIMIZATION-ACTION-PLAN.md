@@ -616,8 +616,8 @@ The repo still only has the Phase 2 SiLU approximations. RMSNorm and softmax pol
 
 ### T3.5 -- Non-Interactive Protocol
 
-**Status update (2026-03-29): Blocked by upstream Phase 3 tasks.**
-The one-request / one-response protocol is not implementable yet because both GPU-backed HE execution and the full polynomial model remain blocked. See [T3.5 status](T3.5-NON-INTERACTIVE-PROTOCOL-STATUS.md).
+**Status update (2026-04-13): Blocked by readiness gates; artifact added.**
+The one-request / one-response protocol is not implementable yet because both GPU-backed HE execution and the full polynomial model remain `no_go` in current readiness artifacts. See [T3.5 status](T3.5-NON-INTERACTIVE-PROTOCOL-STATUS.md) and `benchmarks/results/t3_noninteractive_readiness.json`.
 
 | | |
 |---|---|

@@ -1,0 +1,112 @@
+{
+  "timestamp": "2026-04-13T13:25:15.393668+00:00",
+  "gpu_readiness": {
+    "timestamp": "2026-04-13T13:11:44.197783+00:00",
+    "backend_status": {
+      "selected_backend": "tenseal",
+      "openfhe_available": true,
+      "openfhe_import_error": null,
+      "gpu_available": true,
+      "gpu_error": null
+    },
+    "openfhe_readiness": {
+      "timestamp": "2026-04-13T12:27:18.771935+00:00",
+      "joined_metrics": [
+        {
+          "name": "1024x256",
+          "tenseal_mean_ms": 6033.11,
+          "openfhe_mean_ms": 103758.685,
+          "openfhe_slowdown_vs_tenseal": 17.19820871822327,
+          "tenseal_mae": 3.8442600214239064e-09,
+          "openfhe_mae": 2.035953627910203e-09,
+          "mae_delta": -1.8083063935137034e-09
+        },
+        {
+          "name": "2048x1024",
+          "tenseal_mean_ms": 12882.026,
+          "openfhe_mean_ms": 384243.858,
+          "openfhe_slowdown_vs_tenseal": 29.827905796805567,
+          "tenseal_mae": 6.049482692560559e-09,
+          "openfhe_mae": 2.4542785581616045e-09,
+          "mae_delta": -3.595204134398955e-09
+        },
+        {
+          "name": "2048x2048",
+          "tenseal_mean_ms": 15208.438,
+          "openfhe_mean_ms": 491582.044,
+          "openfhe_slowdown_vs_tenseal": 32.32298044020037,
+          "tenseal_mae": 5.52882006843447e-09,
+          "openfhe_mae": 2.1623156598593596e-09,
+          "mae_delta": -3.3665044085751106e-09
+        },
+        {
+          "name": "2048x256",
+          "tenseal_mean_ms": 12551.124,
+          "openfhe_mean_ms": 96635.507,
+          "openfhe_slowdown_vs_tenseal": 7.699350831049076,
+          "tenseal_mae": 5.560213622857191e-09,
+          "openfhe_mae": 2.4856952052232373e-09,
+          "mae_delta": -3.0745184176339535e-09
+        },
+        {
+          "name": "512x256",
+          "tenseal_mean_ms": 3547.24,
+          "openfhe_mean_ms": 106719.763,
+          "openfhe_slowdown_vs_tenseal": 30.08529532819883,
+          "tenseal_mae": 3.2594513754702348e-09,
+          "openfhe_mae": 2.098481388657092e-09,
+          "mae_delta": -1.1609699868131429e-09
+        }
+      ],
+      "decision": {
+        "decision": "no_go",
+        "performance_ok": false,
+        "accuracy_ok": true,
+        "worst_slowdown": 32.32298044020037,
+        "worst_openfhe_mae": 2.4856952052232373e-09,
+        "max_allowed_slowdown": 1.25,
+        "max_allowed_mae": 1e-06,
+        "failures": [],
+        "reasons": [
+          "Worst OpenFHE slowdown 32.323 exceeds threshold 1.250."
+        ]
+      }
+    },
+    "decision": {
+      "decision": "no_go",
+      "gpu_available": true,
+      "openfhe_available": true,
+      "openfhe_readiness_decision": "no_go",
+      "reasons": [
+        "OpenFHE matmul readiness is `no_go`, not `go`."
+      ]
+    }
+  },
+  "polynomial_readiness": {
+    "timestamp": "2026-04-13T13:19:28.413804+00:00",
+    "features": {
+      "client_poly_silu": true,
+      "server_poly_silu": true,
+      "client_poly_rmsnorm": false,
+      "server_poly_rmsnorm": false,
+      "client_poly_softmax": false,
+      "server_poly_softmax": false
+    },
+    "decision": {
+      "decision": "no_go",
+      "reasons": [
+        "RMSNorm polynomial replacement is missing.",
+        "Softmax polynomial replacement is missing."
+      ]
+    }
+  },
+  "decision": {
+    "decision": "no_go",
+    "gpu_readiness_decision": "no_go",
+    "polynomial_readiness_decision": "no_go",
+    "reasons": [
+      "T3.3 GPU readiness is `no_go`.",
+      "T3.4 polynomial readiness is `no_go`."
+    ]
+  }
+}
