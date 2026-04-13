@@ -6,9 +6,11 @@ import torch
 import torch.nn as nn
 from client.inference.nonlinear_ops import (
     rms_norm,
+    poly_rms_norm,
     silu,
     poly_silu,
     softmax,
+    poly_softmax,
     compute_attention,
 )
 
@@ -37,6 +39,13 @@ class TestRMSNorm:
         result = rms_norm(np.ones(64, dtype=np.float32), np.ones(64, dtype=np.float32))
         assert result.shape == (64,)
         np.testing.assert_allclose(result, np.ones(64), atol=1e-5)
+
+    def test_poly_rms_norm_returns_finite_values(self):
+        x = np.random.randn(3, 64).astype(np.float32) * 0.5
+        weight = np.ones(64, dtype=np.float32)
+        result = poly_rms_norm(x, weight)
+        assert result.shape == x.shape
+        assert np.all(np.isfinite(result))
 
 
 class TestSiLU:
@@ -76,6 +85,17 @@ class TestSoftmax:
         result = softmax(x, axis=-1)
         assert np.all(np.isfinite(result))
         assert result.sum() == pytest.approx(1.0, abs=1e-6)
+
+    def test_poly_softmax_sums_to_one(self):
+        x = np.random.randn(4, 8).astype(np.float32)
+        result = poly_softmax(x, axis=-1)
+        sums = result.sum(axis=-1)
+        np.testing.assert_allclose(sums, np.ones(4), atol=1e-6)
+
+    def test_poly_softmax_finite(self):
+        x = np.array([[1000.0, 1001.0, 1002.0]], dtype=np.float32)
+        result = poly_softmax(x, axis=-1)
+        assert np.all(np.isfinite(result))
 
 
 class TestAttention:

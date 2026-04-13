@@ -592,7 +592,7 @@ Backend status reporting now captures OpenFHE and GPU probe results, and a T3.3 
 ### T3.4 -- Full Polynomial Model
 
 **Status update (2026-04-13): Still blocked; readiness artifact added.**
-The repo still only has the Phase 2 SiLU approximations. RMSNorm and softmax polynomial replacements are not implemented, and the current polynomial readiness artifact remains `no_go` (`benchmarks/results/t3_polynomial_readiness.json`). See [T3.4 status](T3.4-FULL-POLYNOMIAL-MODEL-STATUS.md).
+The repo has Phase 2 SiLU approximations plus prototype client-side `poly_rms_norm` / `poly_softmax`, but server-side RMSNorm and softmax polynomial replacements are still missing. The current polynomial readiness artifact remains `no_go` (`benchmarks/results/t3_polynomial_readiness.json`). See [T3.4 status](T3.4-FULL-POLYNOMIAL-MODEL-STATUS.md).
 
 | | |
 |---|---|

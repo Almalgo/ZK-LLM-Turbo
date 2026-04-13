@@ -16,6 +16,21 @@ POLY_SILU_COEFFS = (
     0.000144937819,
 )
 
+POLY_SOFTMAX_EXP_CLAMP = 4.0
+
+
+def poly_rms_norm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-5) -> np.ndarray:
+    """Prototype polynomial-style RMSNorm approximation.
+
+    Uses first-order inverse-square-root approximation around 1:
+    rsqrt(t) ~= 1.5 - 0.5 * t
+    where t = variance + eps.
+    """
+    variance = np.mean(x ** 2, axis=-1, keepdims=True)
+    t = variance + eps
+    inv_sqrt_approx = 1.5 - 0.5 * t
+    return x * inv_sqrt_approx * weight
+
 
 def rms_norm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-5) -> np.ndarray:
     """RMSNorm matching PyTorch's LlamaRMSNorm.
@@ -50,6 +65,20 @@ def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
     x_max = np.max(x, axis=axis, keepdims=True)
     exp_x = np.exp(x - x_max)
     return exp_x / np.sum(exp_x, axis=axis, keepdims=True)
+
+
+def poly_softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
+    """Prototype polynomial softmax approximation.
+
+    Approximates exp(z) on a clamped domain with 1 + z + 0.5 z^2,
+    then normalizes along `axis`.
+    """
+    x_max = np.max(x, axis=axis, keepdims=True)
+    z = np.clip(x - x_max, -POLY_SOFTMAX_EXP_CLAMP, POLY_SOFTMAX_EXP_CLAMP)
+    exp_approx = 1.0 + z + 0.5 * np.square(z)
+    exp_approx = np.maximum(exp_approx, 1e-6)
+    denom = np.sum(exp_approx, axis=axis, keepdims=True)
+    return exp_approx / denom
 
 
 def compute_attention(

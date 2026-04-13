@@ -28,10 +28,10 @@ def _decision(features: dict) -> dict:
 
     if not features.get("client_poly_silu") or not features.get("server_poly_silu"):
         reasons.append("SiLU polynomial coverage is incomplete.")
-    if not features.get("client_poly_rmsnorm") and not features.get("server_poly_rmsnorm"):
-        reasons.append("RMSNorm polynomial replacement is missing.")
-    if not features.get("client_poly_softmax") and not features.get("server_poly_softmax"):
-        reasons.append("Softmax polynomial replacement is missing.")
+    if not features.get("server_poly_rmsnorm"):
+        reasons.append("Server-side RMSNorm polynomial replacement is missing.")
+    if not features.get("server_poly_softmax"):
+        reasons.append("Server-side softmax polynomial replacement is missing.")
 
     ready = not reasons
     return {

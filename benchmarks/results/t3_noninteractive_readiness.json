@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-04-13T13:36:11.361822+00:00",
+  "timestamp": "2026-04-13T13:43:35.411424+00:00",
   "gpu_readiness": {
-    "timestamp": "2026-04-13T13:36:11.253207+00:00",
+    "timestamp": "2026-04-13T13:43:35.304765+00:00",
     "backend_status": {
       "selected_backend": "tenseal",
       "openfhe_available": true,
@@ -10,7 +10,7 @@
       "gpu_error": null
     },
     "openfhe_readiness": {
-      "timestamp": "2026-04-13T13:36:10.881953+00:00",
+      "timestamp": "2026-04-13T13:43:35.029934+00:00",
       "joined_metrics": [
         {
           "name": "1024x256",
@@ -83,20 +83,20 @@
     }
   },
   "polynomial_readiness": {
-    "timestamp": "2026-04-13T13:36:11.316511+00:00",
+    "timestamp": "2026-04-13T13:43:35.365351+00:00",
     "features": {
       "client_poly_silu": true,
       "server_poly_silu": true,
-      "client_poly_rmsnorm": false,
+      "client_poly_rmsnorm": true,
       "server_poly_rmsnorm": false,
-      "client_poly_softmax": false,
+      "client_poly_softmax": true,
       "server_poly_softmax": false
     },
     "decision": {
       "decision": "no_go",
       "reasons": [
-        "RMSNorm polynomial replacement is missing.",
-        "Softmax polynomial replacement is missing."
+        "Server-side RMSNorm polynomial replacement is missing.",
+        "Server-side softmax polynomial replacement is missing."
       ]
     }
   },

@@ -23,8 +23,8 @@ def test_decision_go_when_all_polynomial_features_exist():
             "client_poly_silu": True,
             "server_poly_silu": True,
             "client_poly_rmsnorm": True,
-            "server_poly_rmsnorm": False,
-            "client_poly_softmax": False,
+            "server_poly_rmsnorm": True,
+            "client_poly_softmax": True,
             "server_poly_softmax": True,
         }
     )
