@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-04-13T13:19:28.413804+00:00",
+  "features": {
+    "client_poly_silu": true,
+    "server_poly_silu": true,
+    "client_poly_rmsnorm": false,
+    "server_poly_rmsnorm": false,
+    "client_poly_softmax": false,
+    "server_poly_softmax": false
+  },
+  "decision": {
+    "decision": "no_go",
+    "reasons": [
+      "RMSNorm polynomial replacement is missing.",
+      "Softmax polynomial replacement is missing."
+    ]
+  }
+}
