@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-04-13T13:25:15.393668+00:00",
+  "timestamp": "2026-04-13T13:36:11.361822+00:00",
   "gpu_readiness": {
-    "timestamp": "2026-04-13T13:11:44.197783+00:00",
+    "timestamp": "2026-04-13T13:36:11.253207+00:00",
     "backend_status": {
       "selected_backend": "tenseal",
       "openfhe_available": true,
@@ -10,7 +10,7 @@
       "gpu_error": null
     },
     "openfhe_readiness": {
-      "timestamp": "2026-04-13T12:27:18.771935+00:00",
+      "timestamp": "2026-04-13T13:36:10.881953+00:00",
       "joined_metrics": [
         {
           "name": "1024x256",
@@ -83,7 +83,7 @@
     }
   },
   "polynomial_readiness": {
-    "timestamp": "2026-04-13T13:19:28.413804+00:00",
+    "timestamp": "2026-04-13T13:36:11.316511+00:00",
     "features": {
       "client_poly_silu": true,
       "server_poly_silu": true,
