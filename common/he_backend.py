@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import threading
 from typing import Any
 
 import msgpack
@@ -12,6 +13,9 @@ import tenseal as ts
 
 HEContext = Any
 HEVector = Any
+
+_OPENFHE_PLAINTEXT_CACHE: dict[tuple[int, int, int, int], list[Any]] = {}
+_OPENFHE_PLAINTEXT_CACHE_LOCK = threading.Lock()
 
 OPENFHE_IMPORT_ERROR: str | None = None
 try:
@@ -263,9 +267,15 @@ def matmul(vector: HEVector, matrix) -> HEVector:
         _ensure_openfhe_eval_sum_keys(vector)
         _ensure_openfhe_rotate_keys(vector, max(1, d_out - 1))
 
+        plaintext_columns = _get_openfhe_plaintext_columns(
+            context=context,
+            matrix_obj=matrix,
+            matrix_np=matrix_np,
+        )
+
         inner_products = []
         for col_idx in range(d_out):
-            plaintext_col = context.MakeCKKSPackedPlaintext(matrix_np[:, col_idx].tolist())
+            plaintext_col = plaintext_columns[col_idx]
             inner = context.EvalInnerProduct(vector["ciphertext"], plaintext_col, d_in)
             inner_products.append(inner)
 
@@ -311,3 +321,27 @@ def _ensure_openfhe_rotate_keys(vector: dict[str, Any], max_index: int) -> None:
     indices = list(range(start, max_index + 1)) + list(range(-start, -max_index - 1, -1))
     vector["context"].EvalRotateKeyGen(secret_key, indices)
     vector["rotate_keys_max_index"] = max_index
+
+
+def _get_openfhe_plaintext_columns(
+    *,
+    context,
+    matrix_obj,
+    matrix_np,
+) -> list[Any]:
+    d_in, d_out = matrix_np.shape
+    cache_key = (id(context), id(matrix_obj), int(d_in), int(d_out))
+
+    with _OPENFHE_PLAINTEXT_CACHE_LOCK:
+        cached = _OPENFHE_PLAINTEXT_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+
+    plaintext_columns = [
+        context.MakeCKKSPackedPlaintext(matrix_np[:, col_idx].tolist())
+        for col_idx in range(d_out)
+    ]
+
+    with _OPENFHE_PLAINTEXT_CACHE_LOCK:
+        _OPENFHE_PLAINTEXT_CACHE[cache_key] = plaintext_columns
+    return plaintext_columns

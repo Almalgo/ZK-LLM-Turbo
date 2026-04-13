@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-12T19:52:14.857250+00:00",
+  "timestamp": "2026-04-13T10:46:48.864530+00:00",
   "joined_metrics": [
     {
       "name": "1024x256",
@@ -30,12 +30,12 @@
     },
     {
       "name": "2048x256",
-      "tenseal_mean_ms": 13193.391,
-      "openfhe_mean_ms": 112646.797,
-      "openfhe_slowdown_vs_tenseal": 8.538123140593651,
-      "tenseal_mae": 5.2253525950618496e-09,
-      "openfhe_mae": 2.6169182376634126e-09,
-      "mae_delta": -2.608434357398437e-09
+      "tenseal_mean_ms": 12551.124,
+      "openfhe_mean_ms": 96635.507,
+      "openfhe_slowdown_vs_tenseal": 7.699350831049076,
+      "tenseal_mae": 5.560213622857191e-09,
+      "openfhe_mae": 2.4856952052232373e-09,
+      "mae_delta": -3.0745184176339535e-09
     },
     {
       "name": "512x256",
@@ -52,7 +52,7 @@
     "performance_ok": false,
     "accuracy_ok": true,
     "worst_slowdown": 32.32298044020037,
-    "worst_openfhe_mae": 2.6169182376634126e-09,
+    "worst_openfhe_mae": 2.4856952052232373e-09,
     "max_allowed_slowdown": 1.25,
     "max_allowed_mae": 1e-06,
     "reasons": [

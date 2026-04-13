@@ -36,6 +36,7 @@ def _run_backend(
     backend: str,
     dims: list[tuple[int, int]],
     seed: int,
+    samples: int,
     poly_modulus_degree: int,
     coeff_mod_bit_sizes: list[int],
     global_scale: int,
@@ -57,17 +58,22 @@ def _run_backend(
             w = rng.normal(0.0, 0.01, size=(d_in, d_out)).astype(np.float32)
             expected = x @ w
 
-            enc = encrypt_vector(context, x)
-            t0 = time.perf_counter()
-            out_enc = matmul(enc, w)
-            elapsed_ms = (time.perf_counter() - t0) * 1000.0
-            actual = np.array(decrypt_vector(out_enc)[:d_out], dtype=np.float32)
+            elapsed_samples = []
+            actual = None
+            for _ in range(samples):
+                enc = encrypt_vector(context, x)
+                t0 = time.perf_counter()
+                out_enc = matmul(enc, w)
+                elapsed_samples.append((time.perf_counter() - t0) * 1000.0)
+                if actual is None:
+                    actual = np.array(decrypt_vector(out_enc)[:d_out], dtype=np.float32)
 
             abs_err = np.abs(actual - expected)
             rows.append(
                 {
                     "name": f"{d_in}x{d_out}",
-                    "mean_ms": round(float(elapsed_ms), 3),
+                    "mean_ms": round(float(sum(elapsed_samples) / len(elapsed_samples)), 3),
+                    "samples": int(samples),
                     "mae": float(np.mean(abs_err)),
                     "max_abs_error": float(np.max(abs_err)),
                 }
@@ -85,6 +91,7 @@ def _run_backend(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare HE backend matmul on small matrices")
     parser.add_argument("--seed", type=int, default=0, help="Deterministic RNG seed")
+    parser.add_argument("--samples", type=int, default=1, help="Number of runs per dimension.")
     parser.add_argument("--dims", type=str, default="8x4", help="Comma-separated D_inxD_out list")
     parser.add_argument(
         "--backends",
@@ -120,6 +127,7 @@ def main() -> None:
                 backend=backend,
                 dims=dims,
                 seed=args.seed,
+                samples=args.samples,
                 poly_modulus_degree=args.poly_modulus_degree,
                 coeff_mod_bit_sizes=coeff_mod_bit_sizes,
                 global_scale=args.global_scale,

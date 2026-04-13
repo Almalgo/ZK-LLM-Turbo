@@ -137,6 +137,7 @@ def test_openfhe_matmul_uses_inner_product_and_merge(monkeypatch):
         def __init__(self):
             self.eval_sum_keygen_calls = 0
             self.rotate_keygen_indices = []
+            self.plaintext_build_calls = 0
 
         def EvalSumKeyGen(self, secret_key):
             assert secret_key == "sk"
@@ -147,6 +148,7 @@ def test_openfhe_matmul_uses_inner_product_and_merge(monkeypatch):
             self.rotate_keygen_indices.append(list(indices))
 
         def MakeCKKSPackedPlaintext(self, values):
+            self.plaintext_build_calls += 1
             return values
 
         def EvalInnerProduct(self, ciphertext, plaintext, batch_size):
@@ -181,6 +183,11 @@ def test_openfhe_matmul_uses_inner_product_and_merge(monkeypatch):
     np.testing.assert_allclose(np.array(result["ciphertext"].values), np.array([4.0, 5.0]))
     assert fake_context.eval_sum_keygen_calls == 1
     assert fake_context.rotate_keygen_indices
+    assert fake_context.plaintext_build_calls == 2
+
+    second = he_backend.matmul(vector, matrix)
+    np.testing.assert_allclose(np.array(second["ciphertext"].values), np.array([4.0, 5.0]))
+    assert fake_context.plaintext_build_calls == 2
 
 
 def test_openfhe_clone_and_square_preserve_wrapper(monkeypatch):
