@@ -189,6 +189,19 @@ def test_openfhe_matmul_uses_inner_product_and_merge(monkeypatch):
     np.testing.assert_allclose(np.array(second["ciphertext"].values), np.array([4.0, 5.0]))
     assert fake_context.plaintext_build_calls == 2
 
+    vector2 = {
+        "backend": "openfhe",
+        "context": fake_context,
+        "ciphertext": FakeCiphertext([1.0, 2.0, 3.0]),
+        "secret_key": "sk",
+        "rotate_keys_max_index": 0,
+        "eval_sum_keys_generated": False,
+    }
+    third = he_backend.matmul(vector2, matrix)
+    np.testing.assert_allclose(np.array(third["ciphertext"].values), np.array([4.0, 5.0]))
+    assert fake_context.eval_sum_keygen_calls == 1
+    assert fake_context.plaintext_build_calls == 2
+
 
 def test_openfhe_clone_and_square_preserve_wrapper(monkeypatch):
     from common import he_backend

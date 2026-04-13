@@ -16,6 +16,8 @@ HEVector = Any
 
 _OPENFHE_PLAINTEXT_CACHE: dict[tuple[int, int, int, int], list[Any]] = {}
 _OPENFHE_PLAINTEXT_CACHE_LOCK = threading.Lock()
+_OPENFHE_KEY_STATE: dict[int, dict[str, Any]] = {}
+_OPENFHE_KEY_STATE_LOCK = threading.Lock()
 
 OPENFHE_IMPORT_ERROR: str | None = None
 try:
@@ -110,6 +112,12 @@ def create_context(
             context.EvalSumKeyGen(keypair.secretKey)
             eval_sum_keys_generated = True
 
+        with _OPENFHE_KEY_STATE_LOCK:
+            _OPENFHE_KEY_STATE[id(context)] = {
+                "rotate_keys_max_index": 1 if use_galois_keys else 0,
+                "eval_sum_keys_generated": eval_sum_keys_generated,
+            }
+
         return {
             "backend": "openfhe",
             "context": context,
@@ -143,6 +151,11 @@ def context_from_public_bytes(ctx_bytes: bytes) -> HEContext:
             payload["public_key"],
             _openfhe.BINARY,
         )
+        with _OPENFHE_KEY_STATE_LOCK:
+            _OPENFHE_KEY_STATE[id(context)] = {
+                "rotate_keys_max_index": 0,
+                "eval_sum_keys_generated": False,
+            }
         return {
             "backend": "openfhe",
             "context": context,
@@ -299,18 +312,44 @@ def square(vector: HEVector) -> HEVector:
 
 
 def _ensure_openfhe_eval_sum_keys(vector: dict[str, Any]) -> None:
-    if vector.get("eval_sum_keys_generated"):
+    context_id = id(vector["context"])
+    with _OPENFHE_KEY_STATE_LOCK:
+        state = _OPENFHE_KEY_STATE.setdefault(
+            context_id,
+            {
+                "rotate_keys_max_index": int(vector.get("rotate_keys_max_index", 0)),
+                "eval_sum_keys_generated": bool(vector.get("eval_sum_keys_generated", False)),
+            },
+        )
+
+    if state.get("eval_sum_keys_generated"):
+        vector["eval_sum_keys_generated"] = True
         return
+
     secret_key = vector.get("secret_key")
     if secret_key is None:
         raise RuntimeError("OpenFHE EvalSumKeyGen requires secret_key")
+
     vector["context"].EvalSumKeyGen(secret_key)
     vector["eval_sum_keys_generated"] = True
+    with _OPENFHE_KEY_STATE_LOCK:
+        state["eval_sum_keys_generated"] = True
 
 
 def _ensure_openfhe_rotate_keys(vector: dict[str, Any], max_index: int) -> None:
-    current_max = int(vector.get("rotate_keys_max_index", 0))
+    context_id = id(vector["context"])
+    with _OPENFHE_KEY_STATE_LOCK:
+        state = _OPENFHE_KEY_STATE.setdefault(
+            context_id,
+            {
+                "rotate_keys_max_index": int(vector.get("rotate_keys_max_index", 0)),
+                "eval_sum_keys_generated": bool(vector.get("eval_sum_keys_generated", False)),
+            },
+        )
+        current_max = int(state.get("rotate_keys_max_index", 0))
+
     if max_index <= current_max:
+        vector["rotate_keys_max_index"] = current_max
         return
 
     secret_key = vector.get("secret_key")
@@ -321,6 +360,8 @@ def _ensure_openfhe_rotate_keys(vector: dict[str, Any], max_index: int) -> None:
     indices = list(range(start, max_index + 1)) + list(range(-start, -max_index - 1, -1))
     vector["context"].EvalRotateKeyGen(secret_key, indices)
     vector["rotate_keys_max_index"] = max_index
+    with _OPENFHE_KEY_STATE_LOCK:
+        state["rotate_keys_max_index"] = max_index
 
 
 def _get_openfhe_plaintext_columns(
