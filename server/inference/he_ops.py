@@ -22,6 +22,7 @@ def he_matmul(
     enc_vector,
     weight_matrix: np.ndarray = None,
     precomputed_list: list | None = None,
+    precomputed_diagonals: list[list[float]] | None = None,
 ):
     """Multiply encrypted vector by plaintext weight matrix.
 
@@ -32,7 +33,9 @@ def he_matmul(
     Returns encrypted vector of dim D_out.
     """
     t0 = time.perf_counter()
-    if precomputed_list is not None:
+    if precomputed_diagonals is not None:
+        result = he_matmul_diagonal(enc_vector, precomputed_diagonals)
+    elif precomputed_list is not None:
         result = matmul(enc_vector, precomputed_list)
     elif weight_matrix is not None:
         result = matmul(enc_vector, weight_matrix)
@@ -41,6 +44,34 @@ def he_matmul(
     elapsed = (time.perf_counter() - t0) * 1000
     logger.debug(f"he_matmul: {elapsed:.1f}ms")
     return result
+
+
+def he_matmul_diagonal(
+    enc_vector,
+    diagonals: list[list[float]],
+):
+    """Prototype diagonal-runtime matmul path using precomputed cyclic diagonals.
+
+    This currently reconstructs the dense matrix and routes through `matmul()`.
+    It exists to validate runtime wiring and correctness before optimized
+    rotate/multiply/add packed kernels are introduced.
+    """
+    if not diagonals:
+        raise ValueError("diagonals must be a non-empty list")
+
+    rows = len(diagonals[0])
+    cols = len(diagonals)
+    for diagonal in diagonals:
+        if len(diagonal) != rows:
+            raise ValueError("all diagonals must have matching row length")
+
+    dense = np.zeros((rows, cols), dtype=np.float32)
+    for row_idx in range(rows):
+        for col_idx in range(cols):
+            offset = (col_idx - row_idx) % cols
+            dense[row_idx, col_idx] = float(diagonals[offset][row_idx])
+
+    return matmul(enc_vector, dense)
 
 
 def he_matmul_split_output(

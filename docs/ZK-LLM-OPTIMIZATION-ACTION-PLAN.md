@@ -543,8 +543,8 @@ Readiness artifact:
 
 ### T3.2 -- Diagonal Packing MatMul (THOR-style)
 
-**Status update (2026-04-12): Preprocessing groundwork landed; runtime still blocked.**
-Per-layer cyclic diagonal extraction and caching are now implemented in `weight_manager.py`. The backend migration now has an initial OpenFHE matmul path, but the actual packed-matmul runtime remains blocked on larger-dimension OpenFHE parity/performance validation. See [T3.2 status](T3.2-DIAGONAL-PACKING-STATUS.md).
+**Status update (2026-04-13): Preprocessing and runtime prototype landed; optimized runtime still blocked.**
+Per-layer cyclic diagonal extraction and caching are implemented in `weight_manager.py`, and a correctness-oriented `he_matmul_diagonal()` runtime prototype is now present in `he_ops.py`. The optimized packed-matmul runtime remains blocked on larger-dimension OpenFHE parity/performance validation plus packed-kernel implementation work. See [T3.2 status](T3.2-DIAGONAL-PACKING-STATUS.md).
 
 | | |
 |---|---|

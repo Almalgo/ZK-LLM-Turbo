@@ -7,6 +7,7 @@ from common.constants import COEFF_MOD_BIT_SIZES, GLOBAL_SCALE, POLY_MODULUS_DEG
 from server.inference.he_ops import (
     compute_ffn_merged,
     he_matmul,
+    he_matmul_diagonal,
     he_matmul_split_output,
     he_matmul_split_input,
     poly_silu,
@@ -84,6 +85,27 @@ class TestHEMatmul:
 
         # Larger tolerance for large matmul
         np.testing.assert_allclose(actual, expected, atol=0.5)
+
+    def test_matmul_diagonal_prototype_matches_dense(self, ckks_context):
+        """Diagonal runtime prototype should match dense matmul output."""
+        dim = 8
+        x = np.random.randn(dim).astype(np.float32) * 0.1
+        W = np.random.randn(dim, dim).astype(np.float32) * 0.1
+
+        diagonals = []
+        for offset in range(dim):
+            diagonals.append([
+                float(W[row_idx, (row_idx + offset) % dim])
+                for row_idx in range(dim)
+            ])
+
+        enc_x = ts.ckks_vector(ckks_context, x.tolist())
+        dense_out = he_matmul(enc_x, W)
+        diag_out = he_matmul_diagonal(enc_x, diagonals)
+
+        dense_actual = np.array(dense_out.decrypt()[:dim], dtype=np.float32)
+        diag_actual = np.array(diag_out.decrypt()[:dim], dtype=np.float32)
+        np.testing.assert_allclose(diag_actual, dense_actual, atol=0.01)
 
 
 class TestHEMatmulSplitOutput:
