@@ -507,6 +507,7 @@ Initial backend-level smoke benchmark artifact:
 - `benchmarks/results/compare_he_backend_matmul_2048x256.json`
 - `benchmarks/results/compare_he_backend_matmul_2048x256_samples2.json`
 - `benchmarks/results/compare_he_backend_matmul_2048x256_samples2_keycache.json`
+- `benchmarks/results/compare_he_backend_matmul_2048x256_warm.json`
 - `benchmarks/results/compare_he_backend_matmul_tenseal_2048x1024.json`
 - `benchmarks/results/compare_he_backend_matmul_openfhe_2048x1024.json`
 - `benchmarks/results/compare_he_backend_matmul_tenseal_2048x2048.json`

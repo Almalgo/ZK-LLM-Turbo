@@ -37,6 +37,7 @@ def _run_backend(
     dims: list[tuple[int, int]],
     seed: int,
     samples: int,
+    warmups: int,
     poly_modulus_degree: int,
     coeff_mod_bit_sizes: list[int],
     global_scale: int,
@@ -57,6 +58,10 @@ def _run_backend(
             x = rng.normal(0.0, 0.01, size=d_in).astype(np.float32)
             w = rng.normal(0.0, 0.01, size=(d_in, d_out)).astype(np.float32)
             expected = x @ w
+
+            for _ in range(max(0, warmups)):
+                warmup_enc = encrypt_vector(context, x)
+                _ = matmul(warmup_enc, w)
 
             elapsed_samples = []
             actual = None
@@ -92,6 +97,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Compare HE backend matmul on small matrices")
     parser.add_argument("--seed", type=int, default=0, help="Deterministic RNG seed")
     parser.add_argument("--samples", type=int, default=1, help="Number of runs per dimension.")
+    parser.add_argument("--warmups", type=int, default=1, help="Warmup runs per dimension.")
     parser.add_argument("--dims", type=str, default="8x4", help="Comma-separated D_inxD_out list")
     parser.add_argument(
         "--backends",
@@ -128,6 +134,7 @@ def main() -> None:
                 dims=dims,
                 seed=args.seed,
                 samples=args.samples,
+                warmups=args.warmups,
                 poly_modulus_degree=args.poly_modulus_degree,
                 coeff_mod_bit_sizes=coeff_mod_bit_sizes,
                 global_scale=args.global_scale,
