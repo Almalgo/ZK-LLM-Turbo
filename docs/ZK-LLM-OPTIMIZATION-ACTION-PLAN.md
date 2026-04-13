@@ -512,6 +512,10 @@ Initial backend-level smoke benchmark artifact:
 
 Current signal from these artifacts: numerical parity is strong on sampled dimensions, but OpenFHE runtime is still far slower than TenSEAL in the current matmul implementation (for example, ~32x slower at `2048x2048`).
 
+Readiness artifact:
+
+- `benchmarks/results/t3_openfhe_matmul_readiness.json` (`decision=no_go` for production default under current thresholds)
+
 | | |
 |---|---|
 | **Why** | TenSEAL is CPU-only, no bootstrapping, no diagonal packing, limited maintenance since 2022. OpenFHE supports all of these plus GPU extensions. This is the **most critical Phase 3 prerequisite**. |
