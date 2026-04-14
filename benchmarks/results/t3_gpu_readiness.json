@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-14T07:39:04.453075+00:00",
+  "timestamp": "2026-04-14T07:48:15.274390+00:00",
   "backend_status": {
     "selected_backend": "tenseal",
     "openfhe_available": true,
@@ -8,7 +8,7 @@
     "gpu_error": null
   },
   "openfhe_readiness": {
-    "timestamp": "2026-04-14T07:39:04.167268+00:00",
+    "timestamp": "2026-04-14T07:48:14.990623+00:00",
     "joined_metrics": [
       {
         "name": "1024x256",
@@ -70,13 +70,39 @@
       ]
     }
   },
+  "gpu_feasibility": {
+    "timestamp": "2026-04-14T07:47:27.528835+00:00",
+    "symbol_probe": {
+      "importable": true,
+      "gpu_symbols": []
+    },
+    "gpu_before": {
+      "ok": true,
+      "utilization_gpu": 0,
+      "memory_used_mib": 1
+    },
+    "openfhe_small_matmul": {
+      "ok": true,
+      "error": null
+    },
+    "gpu_after": {
+      "ok": true,
+      "utilization_gpu": 0,
+      "memory_used_mib": 1
+    },
+    "utilization_delta": 0,
+    "memory_delta_mib": 0,
+    "gpu_path_usable": false
+  },
   "decision": {
     "decision": "no_go",
     "gpu_available": true,
     "openfhe_available": true,
     "openfhe_readiness_decision": "no_go",
+    "gpu_path_usable": false,
     "reasons": [
-      "OpenFHE matmul readiness is `no_go`, not `go`."
+      "OpenFHE matmul readiness is `no_go`, not `go`.",
+      "No confirmed GPU HE execution path in current OpenFHE runtime."
     ]
   }
 }

@@ -571,8 +571,8 @@ Prototype benchmark artifact:
 
 ### T3.3 -- GPU-Accelerated CKKS
 
-**Status update (2026-04-13): Hardware probe available; readiness still blocked.**
-Backend status reporting now captures OpenFHE and GPU probe results, and a T3.3 readiness artifact is generated at `benchmarks/results/t3_gpu_readiness.json`. Current decision remains `no_go` because T3.1 OpenFHE matmul readiness is still `no_go`, so GPU acceleration is not yet implementation-ready. See [T3.3 GPU status](T3.3-GPU-STATUS.md).
+**Status update (2026-04-14): Hardware probe available; feasibility still blocked.**
+Backend status reporting now captures OpenFHE and GPU probe results, and T3.3 artifacts are generated at `benchmarks/results/t3_gpu_readiness.json` and `benchmarks/results/t3_gpu_feasibility.json`. Current decision remains `no_go`: T3.1 readiness is `no_go`, and feasibility probe evidence does not yet show a usable GPU HE path in the current OpenFHE runtime. See [T3.3 GPU status](T3.3-GPU-STATUS.md).
 
 | | |
 |---|---|

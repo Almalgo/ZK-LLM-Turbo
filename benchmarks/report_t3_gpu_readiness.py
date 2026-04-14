@@ -21,7 +21,13 @@ def _load_openfhe_readiness(path: Path | None) -> dict:
     return json.loads(path.read_text())
 
 
-def _decision(backend_status: dict, openfhe_readiness: dict) -> dict:
+def _load_gpu_feasibility(path: Path | None) -> dict:
+    if path is None:
+        return {}
+    return json.loads(path.read_text())
+
+
+def _decision(backend_status: dict, openfhe_readiness: dict, gpu_feasibility: dict) -> dict:
     reasons: list[str] = []
     gpu_available = bool(backend_status.get("gpu_available", False))
     openfhe_available = bool(backend_status.get("openfhe_available", False))
@@ -37,12 +43,17 @@ def _decision(backend_status: dict, openfhe_readiness: dict) -> dict:
             f"OpenFHE matmul readiness is `{readiness_decision}`, not `go`."
         )
 
-    ready = gpu_available and openfhe_available and readiness_decision == "go"
+    gpu_path_usable = bool(gpu_feasibility.get("gpu_path_usable", False))
+    if not gpu_path_usable:
+        reasons.append("No confirmed GPU HE execution path in current OpenFHE runtime.")
+
+    ready = gpu_available and openfhe_available and readiness_decision == "go" and gpu_path_usable
     return {
         "decision": "go" if ready else "no_go",
         "gpu_available": gpu_available,
         "openfhe_available": openfhe_available,
         "openfhe_readiness_decision": readiness_decision,
+        "gpu_path_usable": gpu_path_usable,
         "reasons": reasons,
     }
 
@@ -61,16 +72,24 @@ def main() -> None:
         default=Path("benchmarks/results/t3_gpu_readiness.json"),
         help="Output JSON report path.",
     )
+    parser.add_argument(
+        "--gpu-feasibility",
+        type=Path,
+        default=Path("benchmarks/results/t3_gpu_feasibility.json"),
+        help="Path to GPU feasibility probe artifact.",
+    )
     args = parser.parse_args()
 
     backend_status = get_backend_status()
     openfhe_readiness = _load_openfhe_readiness(args.openfhe_readiness)
-    decision = _decision(backend_status, openfhe_readiness)
+    gpu_feasibility = _load_gpu_feasibility(args.gpu_feasibility)
+    decision = _decision(backend_status, openfhe_readiness, gpu_feasibility)
 
     report = {
         "timestamp": datetime.now(UTC).isoformat(),
         "backend_status": backend_status,
         "openfhe_readiness": openfhe_readiness,
+        "gpu_feasibility": gpu_feasibility,
         "decision": decision,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
