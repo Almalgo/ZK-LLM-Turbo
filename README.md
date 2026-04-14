@@ -114,7 +114,7 @@ source split-inference-env/bin/activate
 ### Install dependencies
 
 ```
-pip install -r requirements.txt
+
 ```
 
 ---
@@ -198,6 +198,41 @@ pytest -q              # all quick tests
 pytest -m slow         # slow tests (downloads model)
 pytest -v              # verbose output
 ```
+
+---
+
+## Phase 3 Evidence Snapshot
+
+Recent Phase 3 work is tracked with machine-readable artifacts under `benchmarks/results/`.
+
+Current top-level decision:
+
+- `benchmarks/results/t3_change_decision.json` -> `supports_change: false`
+- `docs/T3-CHANGE-DECISION.md` -> human-readable decision summary
+
+Key readiness artifacts:
+
+- `benchmarks/results/t3_openfhe_matmul_readiness.json`
+- `benchmarks/results/t3_gpu_readiness.json`
+- `benchmarks/results/t3_gpu_feasibility.json`
+- `benchmarks/results/t3_polynomial_readiness.json`
+- `benchmarks/results/t3_noninteractive_readiness.json`
+- `benchmarks/results/t3_phase3_gate.json`
+
+### Reproduce the current decision artifacts
+
+```bash
+# 1) Re-run canonical CPU backend sweep
+python benchmarks/run_t3_openfhe_cpu_sweep.py --python "$(which python)" --dims 512x256,1024x256,2048x256 --samples 1 --warmups 1
+
+# 2) Re-run all Phase 3 readiness gates
+python benchmarks/run_phase3_gates.py --python "$(which python)"
+
+# 3) Regenerate final support/no-support decision
+python benchmarks/report_t3_change_decision.py
+```
+
+Outputs are refreshed in `benchmarks/results/`, with summary docs under `docs/`.
 
 ---
 
