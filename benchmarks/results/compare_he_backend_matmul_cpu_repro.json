@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-04-14T07:26:30Z",
+  "dims": [
+    {
+      "d_in": 512,
+      "d_out": 256
+    },
+    {
+      "d_in": 1024,
+      "d_out": 256
+    },
+    {
+      "d_in": 2048,
+      "d_out": 256
+    }
+  ],
+  "params": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776
+  },
+  "backends": [
+    {
+      "backend": "tenseal",
+      "ok": true,
+      "results": [
+        {
+          "name": "512x256",
+          "mean_ms": 2869.817,
+          "samples": 1,
+          "mae": 3.308933571588568e-09,
+          "max_abs_error": 1.1175870895385742e-08
+        },
+        {
+          "name": "1024x256",
+          "mean_ms": 6176.571,
+          "samples": 1,
+          "mae": 4.553157850750722e-09,
+          "max_abs_error": 1.885928213596344e-08
+        },
+        {
+          "name": "2048x256",
+          "mean_ms": 13545.292,
+          "samples": 1,
+          "mae": 5.867548225069186e-09,
+          "max_abs_error": 2.514570951461792e-08
+        }
+      ],
+      "error": null
+    },
+    {
+      "backend": "openfhe",
+      "ok": true,
+      "results": [
+        {
+          "name": "512x256",
+          "mean_ms": 79062.744,
+          "samples": 1,
+          "mae": 2.571908908066689e-09,
+          "max_abs_error": 9.080395102500916e-09
+        },
+        {
+          "name": "1024x256",
+          "mean_ms": 85537.921,
+          "samples": 1,
+          "mae": 2.618797623199498e-09,
+          "max_abs_error": 9.080395102500916e-09
+        },
+        {
+          "name": "2048x256",
+          "mean_ms": 93982.343,
+          "samples": 1,
+          "mae": 2.523307784940698e-09,
+          "max_abs_error": 1.0244548320770264e-08
+        }
+      ],
+      "error": null
+    }
+  ]
+}

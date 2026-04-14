@@ -502,6 +502,7 @@ Initial backend-level smoke benchmark artifact:
 - `benchmarks/results/bench_he_matmul_backend_openfhe_smoke.json`
 - `benchmarks/results/compare_he_backend_matmul_smoke.json`
 - `benchmarks/results/compare_he_backend_matmul_medium.json`
+- `benchmarks/results/compare_he_backend_matmul_cpu_repro.json`
 - `benchmarks/results/compare_he_backend_matmul_512x256.json`
 - `benchmarks/results/compare_he_backend_matmul_1024x256.json`
 - `benchmarks/results/compare_he_backend_matmul_2048x256.json`

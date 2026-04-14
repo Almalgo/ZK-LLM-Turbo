@@ -1,14 +1,14 @@
 {
-  "timestamp": "2026-04-13T16:28:25.106287+00:00",
+  "timestamp": "2026-04-14T07:39:04.167268+00:00",
   "joined_metrics": [
     {
       "name": "1024x256",
-      "tenseal_mean_ms": 6033.11,
-      "openfhe_mean_ms": 103758.685,
-      "openfhe_slowdown_vs_tenseal": 17.19820871822327,
-      "tenseal_mae": 3.8442600214239064e-09,
-      "openfhe_mae": 2.035953627910203e-09,
-      "mae_delta": -1.8083063935137034e-09
+      "tenseal_mean_ms": 6176.571,
+      "openfhe_mean_ms": 85537.921,
+      "openfhe_slowdown_vs_tenseal": 13.848771591875169,
+      "tenseal_mae": 4.553157850750722e-09,
+      "openfhe_mae": 2.618797623199498e-09,
+      "mae_delta": -1.934360227551224e-09
     },
     {
       "name": "2048x1024",
@@ -30,21 +30,21 @@
     },
     {
       "name": "2048x256",
-      "tenseal_mean_ms": 12551.124,
-      "openfhe_mean_ms": 96635.507,
-      "openfhe_slowdown_vs_tenseal": 7.699350831049076,
-      "tenseal_mae": 5.560213622857191e-09,
-      "openfhe_mae": 2.4856952052232373e-09,
-      "mae_delta": -3.0745184176339535e-09
+      "tenseal_mean_ms": 13545.292,
+      "openfhe_mean_ms": 93982.343,
+      "openfhe_slowdown_vs_tenseal": 6.938377039047959,
+      "tenseal_mae": 5.867548225069186e-09,
+      "openfhe_mae": 2.523307784940698e-09,
+      "mae_delta": -3.3442404401284875e-09
     },
     {
       "name": "512x256",
-      "tenseal_mean_ms": 3547.24,
-      "openfhe_mean_ms": 106719.763,
-      "openfhe_slowdown_vs_tenseal": 30.08529532819883,
-      "tenseal_mae": 3.2594513754702348e-09,
-      "openfhe_mae": 2.098481388657092e-09,
-      "mae_delta": -1.1609699868131429e-09
+      "tenseal_mean_ms": 2869.817,
+      "openfhe_mean_ms": 79062.744,
+      "openfhe_slowdown_vs_tenseal": 27.549751081689184,
+      "tenseal_mae": 3.308933571588568e-09,
+      "openfhe_mae": 2.571908908066689e-09,
+      "mae_delta": -7.370246635218791e-10
     }
   ],
   "decision": {
@@ -52,7 +52,7 @@
     "performance_ok": false,
     "accuracy_ok": true,
     "worst_slowdown": 32.32298044020037,
-    "worst_openfhe_mae": 2.4856952052232373e-09,
+    "worst_openfhe_mae": 2.618797623199498e-09,
     "max_allowed_slowdown": 5.0,
     "max_allowed_mae": 1e-05,
     "failures": [],

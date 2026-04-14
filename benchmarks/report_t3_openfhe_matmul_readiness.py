@@ -111,9 +111,7 @@ def main() -> None:
         "--tenseal-artifacts",
         type=str,
         default=(
-            "benchmarks/results/compare_he_backend_matmul_512x256.json,"
-            "benchmarks/results/compare_he_backend_matmul_1024x256.json,"
-            "benchmarks/results/compare_he_backend_matmul_2048x256_samples2.json,"
+            "benchmarks/results/compare_he_backend_matmul_cpu_repro.json,"
             "benchmarks/results/compare_he_backend_matmul_tenseal_2048x1024.json,"
             "benchmarks/results/compare_he_backend_matmul_tenseal_2048x2048.json"
         ),
@@ -123,9 +121,7 @@ def main() -> None:
         "--openfhe-artifacts",
         type=str,
         default=(
-            "benchmarks/results/compare_he_backend_matmul_512x256.json,"
-            "benchmarks/results/compare_he_backend_matmul_1024x256.json,"
-            "benchmarks/results/compare_he_backend_matmul_2048x256_samples2.json,"
+            "benchmarks/results/compare_he_backend_matmul_cpu_repro.json,"
             "benchmarks/results/compare_he_backend_matmul_openfhe_2048x1024.json,"
             "benchmarks/results/compare_he_backend_matmul_openfhe_2048x2048.json"
         ),
