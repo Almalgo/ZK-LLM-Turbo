@@ -1,0 +1,356 @@
+{
+  "timestamp": "2026-04-14T07:53:57.920312+00:00",
+  "phase3_gate": {
+    "timestamp": "2026-04-14T07:48:15.442054+00:00",
+    "openfhe_readiness": {
+      "timestamp": "2026-04-14T07:48:14.990623+00:00",
+      "joined_metrics": [
+        {
+          "name": "1024x256",
+          "tenseal_mean_ms": 6176.571,
+          "openfhe_mean_ms": 85537.921,
+          "openfhe_slowdown_vs_tenseal": 13.848771591875169,
+          "tenseal_mae": 4.553157850750722e-09,
+          "openfhe_mae": 2.618797623199498e-09,
+          "mae_delta": -1.934360227551224e-09
+        },
+        {
+          "name": "2048x1024",
+          "tenseal_mean_ms": 12882.026,
+          "openfhe_mean_ms": 384243.858,
+          "openfhe_slowdown_vs_tenseal": 29.827905796805567,
+          "tenseal_mae": 6.049482692560559e-09,
+          "openfhe_mae": 2.4542785581616045e-09,
+          "mae_delta": -3.595204134398955e-09
+        },
+        {
+          "name": "2048x2048",
+          "tenseal_mean_ms": 15208.438,
+          "openfhe_mean_ms": 491582.044,
+          "openfhe_slowdown_vs_tenseal": 32.32298044020037,
+          "tenseal_mae": 5.52882006843447e-09,
+          "openfhe_mae": 2.1623156598593596e-09,
+          "mae_delta": -3.3665044085751106e-09
+        },
+        {
+          "name": "2048x256",
+          "tenseal_mean_ms": 13545.292,
+          "openfhe_mean_ms": 93982.343,
+          "openfhe_slowdown_vs_tenseal": 6.938377039047959,
+          "tenseal_mae": 5.867548225069186e-09,
+          "openfhe_mae": 2.523307784940698e-09,
+          "mae_delta": -3.3442404401284875e-09
+        },
+        {
+          "name": "512x256",
+          "tenseal_mean_ms": 2869.817,
+          "openfhe_mean_ms": 79062.744,
+          "openfhe_slowdown_vs_tenseal": 27.549751081689184,
+          "tenseal_mae": 3.308933571588568e-09,
+          "openfhe_mae": 2.571908908066689e-09,
+          "mae_delta": -7.370246635218791e-10
+        }
+      ],
+      "decision": {
+        "decision": "no_go",
+        "performance_ok": false,
+        "accuracy_ok": true,
+        "worst_slowdown": 32.32298044020037,
+        "worst_openfhe_mae": 2.618797623199498e-09,
+        "max_allowed_slowdown": 5.0,
+        "max_allowed_mae": 1e-05,
+        "failures": [],
+        "reasons": [
+          "Worst OpenFHE slowdown 32.323 exceeds threshold 5.000."
+        ]
+      }
+    },
+    "gpu_readiness": {
+      "timestamp": "2026-04-14T07:48:15.274390+00:00",
+      "backend_status": {
+        "selected_backend": "tenseal",
+        "openfhe_available": true,
+        "openfhe_import_error": null,
+        "gpu_available": true,
+        "gpu_error": null
+      },
+      "openfhe_readiness": {
+        "timestamp": "2026-04-14T07:48:14.990623+00:00",
+        "joined_metrics": [
+          {
+            "name": "1024x256",
+            "tenseal_mean_ms": 6176.571,
+            "openfhe_mean_ms": 85537.921,
+            "openfhe_slowdown_vs_tenseal": 13.848771591875169,
+            "tenseal_mae": 4.553157850750722e-09,
+            "openfhe_mae": 2.618797623199498e-09,
+            "mae_delta": -1.934360227551224e-09
+          },
+          {
+            "name": "2048x1024",
+            "tenseal_mean_ms": 12882.026,
+            "openfhe_mean_ms": 384243.858,
+            "openfhe_slowdown_vs_tenseal": 29.827905796805567,
+            "tenseal_mae": 6.049482692560559e-09,
+            "openfhe_mae": 2.4542785581616045e-09,
+            "mae_delta": -3.595204134398955e-09
+          },
+          {
+            "name": "2048x2048",
+            "tenseal_mean_ms": 15208.438,
+            "openfhe_mean_ms": 491582.044,
+            "openfhe_slowdown_vs_tenseal": 32.32298044020037,
+            "tenseal_mae": 5.52882006843447e-09,
+            "openfhe_mae": 2.1623156598593596e-09,
+            "mae_delta": -3.3665044085751106e-09
+          },
+          {
+            "name": "2048x256",
+            "tenseal_mean_ms": 13545.292,
+            "openfhe_mean_ms": 93982.343,
+            "openfhe_slowdown_vs_tenseal": 6.938377039047959,
+            "tenseal_mae": 5.867548225069186e-09,
+            "openfhe_mae": 2.523307784940698e-09,
+            "mae_delta": -3.3442404401284875e-09
+          },
+          {
+            "name": "512x256",
+            "tenseal_mean_ms": 2869.817,
+            "openfhe_mean_ms": 79062.744,
+            "openfhe_slowdown_vs_tenseal": 27.549751081689184,
+            "tenseal_mae": 3.308933571588568e-09,
+            "openfhe_mae": 2.571908908066689e-09,
+            "mae_delta": -7.370246635218791e-10
+          }
+        ],
+        "decision": {
+          "decision": "no_go",
+          "performance_ok": false,
+          "accuracy_ok": true,
+          "worst_slowdown": 32.32298044020037,
+          "worst_openfhe_mae": 2.618797623199498e-09,
+          "max_allowed_slowdown": 5.0,
+          "max_allowed_mae": 1e-05,
+          "failures": [],
+          "reasons": [
+            "Worst OpenFHE slowdown 32.323 exceeds threshold 5.000."
+          ]
+        }
+      },
+      "gpu_feasibility": {
+        "timestamp": "2026-04-14T07:47:27.528835+00:00",
+        "symbol_probe": {
+          "importable": true,
+          "gpu_symbols": []
+        },
+        "gpu_before": {
+          "ok": true,
+          "utilization_gpu": 0,
+          "memory_used_mib": 1
+        },
+        "openfhe_small_matmul": {
+          "ok": true,
+          "error": null
+        },
+        "gpu_after": {
+          "ok": true,
+          "utilization_gpu": 0,
+          "memory_used_mib": 1
+        },
+        "utilization_delta": 0,
+        "memory_delta_mib": 0,
+        "gpu_path_usable": false
+      },
+      "decision": {
+        "decision": "no_go",
+        "gpu_available": true,
+        "openfhe_available": true,
+        "openfhe_readiness_decision": "no_go",
+        "gpu_path_usable": false,
+        "reasons": [
+          "OpenFHE matmul readiness is `no_go`, not `go`.",
+          "No confirmed GPU HE execution path in current OpenFHE runtime."
+        ]
+      }
+    },
+    "polynomial_readiness": {
+      "timestamp": "2026-04-14T07:48:15.350458+00:00",
+      "features": {
+        "client_poly_silu": true,
+        "server_poly_silu": true,
+        "client_poly_rmsnorm": true,
+        "server_poly_rmsnorm": false,
+        "client_poly_softmax": true,
+        "server_poly_softmax": false
+      },
+      "decision": {
+        "decision": "no_go",
+        "reasons": [
+          "Server-side RMSNorm polynomial replacement is missing.",
+          "Server-side softmax polynomial replacement is missing."
+        ]
+      }
+    },
+    "noninteractive_readiness": {
+      "timestamp": "2026-04-14T07:48:15.396496+00:00",
+      "gpu_readiness": {
+        "timestamp": "2026-04-14T07:48:15.274390+00:00",
+        "backend_status": {
+          "selected_backend": "tenseal",
+          "openfhe_available": true,
+          "openfhe_import_error": null,
+          "gpu_available": true,
+          "gpu_error": null
+        },
+        "openfhe_readiness": {
+          "timestamp": "2026-04-14T07:48:14.990623+00:00",
+          "joined_metrics": [
+            {
+              "name": "1024x256",
+              "tenseal_mean_ms": 6176.571,
+              "openfhe_mean_ms": 85537.921,
+              "openfhe_slowdown_vs_tenseal": 13.848771591875169,
+              "tenseal_mae": 4.553157850750722e-09,
+              "openfhe_mae": 2.618797623199498e-09,
+              "mae_delta": -1.934360227551224e-09
+            },
+            {
+              "name": "2048x1024",
+              "tenseal_mean_ms": 12882.026,
+              "openfhe_mean_ms": 384243.858,
+              "openfhe_slowdown_vs_tenseal": 29.827905796805567,
+              "tenseal_mae": 6.049482692560559e-09,
+              "openfhe_mae": 2.4542785581616045e-09,
+              "mae_delta": -3.595204134398955e-09
+            },
+            {
+              "name": "2048x2048",
+              "tenseal_mean_ms": 15208.438,
+              "openfhe_mean_ms": 491582.044,
+              "openfhe_slowdown_vs_tenseal": 32.32298044020037,
+              "tenseal_mae": 5.52882006843447e-09,
+              "openfhe_mae": 2.1623156598593596e-09,
+              "mae_delta": -3.3665044085751106e-09
+            },
+            {
+              "name": "2048x256",
+              "tenseal_mean_ms": 13545.292,
+              "openfhe_mean_ms": 93982.343,
+              "openfhe_slowdown_vs_tenseal": 6.938377039047959,
+              "tenseal_mae": 5.867548225069186e-09,
+              "openfhe_mae": 2.523307784940698e-09,
+              "mae_delta": -3.3442404401284875e-09
+            },
+            {
+              "name": "512x256",
+              "tenseal_mean_ms": 2869.817,
+              "openfhe_mean_ms": 79062.744,
+              "openfhe_slowdown_vs_tenseal": 27.549751081689184,
+              "tenseal_mae": 3.308933571588568e-09,
+              "openfhe_mae": 2.571908908066689e-09,
+              "mae_delta": -7.370246635218791e-10
+            }
+          ],
+          "decision": {
+            "decision": "no_go",
+            "performance_ok": false,
+            "accuracy_ok": true,
+            "worst_slowdown": 32.32298044020037,
+            "worst_openfhe_mae": 2.618797623199498e-09,
+            "max_allowed_slowdown": 5.0,
+            "max_allowed_mae": 1e-05,
+            "failures": [],
+            "reasons": [
+              "Worst OpenFHE slowdown 32.323 exceeds threshold 5.000."
+            ]
+          }
+        },
+        "gpu_feasibility": {
+          "timestamp": "2026-04-14T07:47:27.528835+00:00",
+          "symbol_probe": {
+            "importable": true,
+            "gpu_symbols": []
+          },
+          "gpu_before": {
+            "ok": true,
+            "utilization_gpu": 0,
+            "memory_used_mib": 1
+          },
+          "openfhe_small_matmul": {
+            "ok": true,
+            "error": null
+          },
+          "gpu_after": {
+            "ok": true,
+            "utilization_gpu": 0,
+            "memory_used_mib": 1
+          },
+          "utilization_delta": 0,
+          "memory_delta_mib": 0,
+          "gpu_path_usable": false
+        },
+        "decision": {
+          "decision": "no_go",
+          "gpu_available": true,
+          "openfhe_available": true,
+          "openfhe_readiness_decision": "no_go",
+          "gpu_path_usable": false,
+          "reasons": [
+            "OpenFHE matmul readiness is `no_go`, not `go`.",
+            "No confirmed GPU HE execution path in current OpenFHE runtime."
+          ]
+        }
+      },
+      "polynomial_readiness": {
+        "timestamp": "2026-04-14T07:48:15.350458+00:00",
+        "features": {
+          "client_poly_silu": true,
+          "server_poly_silu": true,
+          "client_poly_rmsnorm": true,
+          "server_poly_rmsnorm": false,
+          "client_poly_softmax": true,
+          "server_poly_softmax": false
+        },
+        "decision": {
+          "decision": "no_go",
+          "reasons": [
+            "Server-side RMSNorm polynomial replacement is missing.",
+            "Server-side softmax polynomial replacement is missing."
+          ]
+        }
+      },
+      "decision": {
+        "decision": "no_go",
+        "gpu_readiness_decision": "no_go",
+        "polynomial_readiness_decision": "no_go",
+        "reasons": [
+          "T3.3 GPU readiness is `no_go`.",
+          "T3.4 polynomial readiness is `no_go`."
+        ]
+      }
+    },
+    "decision": {
+      "decision": "no_go",
+      "openfhe_readiness_decision": "no_go",
+      "gpu_readiness_decision": "no_go",
+      "polynomial_readiness_decision": "no_go",
+      "noninteractive_readiness_decision": "no_go",
+      "reasons": [
+        "T3.1 readiness is `no_go`.",
+        "T3.3 readiness is `no_go`.",
+        "T3.4 readiness is `no_go`.",
+        "T3.5 readiness is `no_go`."
+      ]
+    }
+  },
+  "decision": {
+    "supports_change": false,
+    "phase3_gate_decision": "no_go",
+    "reasons": [
+      "T3.1 readiness is `no_go`.",
+      "T3.3 readiness is `no_go`.",
+      "T3.4 readiness is `no_go`.",
+      "T3.5 readiness is `no_go`."
+    ]
+  }
+}
