@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-04-14T14:04:00.539986+00:00",
+  "git_sha": "5a6e68243c677976b408bbaa785c412e37bff171",
+  "ckks_params": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      40,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776,
+    "use_galois_keys": true,
+    "use_relin_keys": true
+  },
+  "results": [
+    {
+      "name": "m5_snet_recovery",
+      "status": "fail",
+      "metadata": {
+        "run_utc": "2026-04-14T14:01:12.449003+00:00",
+        "daemon_base_url": "http://127.0.0.1:8012",
+        "session_endpoint": "/api/session",
+        "layer_endpoint": "/api/layer",
+        "layer_idx": 0,
+        "operation": "qkv",
+        "vector_size": 2048,
+        "attempts": 3,
+        "concurrency": 1,
+        "seed": 0,
+        "timeout_seconds": 300.0,
+        "run_total_elapsed_ms": 167916.905,
+        "failure_streaks": 1,
+        "recovered_streaks": 0,
+        "unrecovered_streaks": 1,
+        "recovery_events": 0,
+        "recovery_p50_ms": null,
+        "recovery_p95_ms": null,
+        "recovery_samples_ms": []
+      }
+    }
+  ],
+  "metadata": {
+    "run_utc": "2026-04-14T14:01:12.449003+00:00",
+    "daemon_base_url": "http://127.0.0.1:8012",
+    "session_endpoint": "/api/session",
+    "layer_endpoint": "/api/layer",
+    "layer_idx": 0,
+    "operation": "qkv",
+    "vector_size": 2048,
+    "attempts": 3,
+    "concurrency": 1,
+    "seed": 0,
+    "timeout_seconds": 300.0,
+    "run_total_elapsed_ms": 167916.905,
+    "failure_streaks": 1,
+    "recovered_streaks": 0,
+    "unrecovered_streaks": 1,
+    "recovery_events": 0,
+    "recovery_p50_ms": null,
+    "recovery_p95_ms": null,
+    "recovery_samples_ms": []
+  }
+}

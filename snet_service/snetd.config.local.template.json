@@ -1,0 +1,14 @@
+{
+  "blockchain_enabled": false,
+  "daemon_endpoint": "0.0.0.0:7000",
+  "daemon_type": "http",
+  "passthrough_enabled": true,
+  "service_endpoint": "http://127.0.0.1:8000",
+  "log": {
+    "level": "info",
+    "output": {
+      "current_level": "info",
+      "type": "stdout"
+    }
+  }
+}

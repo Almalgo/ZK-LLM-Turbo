@@ -1,0 +1,19 @@
+{
+  "blockchain_network_selected": "sepolia",
+  "organization_id": "<ORG_ID>",
+  "service_id": "<SERVICE_ID>",
+  "daemon_endpoint": "0.0.0.0:7000",
+  "daemon_type": "http",
+  "auto_ssl_domain": "<DOMAIN>",
+  "passthrough_enabled": true,
+  "service_endpoint": "http://127.0.0.1:8000",
+  "ethereum_json_rpc_http_endpoint": "<SEPOLIA_RPC_URL>",
+  "ipfs_endpoint": "https://ipfs.singularitynet.io:443",
+  "log": {
+    "level": "info",
+    "output": {
+      "current_level": "info",
+      "type": "stdout"
+    }
+  }
+}

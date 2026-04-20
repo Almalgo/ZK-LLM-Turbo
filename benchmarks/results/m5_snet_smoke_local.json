@@ -1,0 +1,61 @@
+{
+  "timestamp": "2026-04-14T14:00:37.422557+00:00",
+  "git_sha": "5a6e68243c677976b408bbaa785c412e37bff171",
+  "ckks_params": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      40,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776,
+    "use_galois_keys": true,
+    "use_relin_keys": true
+  },
+  "results": [
+    {
+      "name": "m5_snet_smoke",
+      "status": "pass",
+      "metadata": {
+        "run_utc": "2026-04-14T13:58:26.878682+00:00",
+        "daemon_base_url": "http://127.0.0.1:8011",
+        "session_endpoint": "/api/session",
+        "layer_endpoint": "/api/layer",
+        "layer_idx": 0,
+        "operation": "qkv",
+        "vector_size": 2048,
+        "seed": 0,
+        "session_status_code": 200,
+        "layer_status_code": 200,
+        "session_id_present": true,
+        "result_count": 3,
+        "session_elapsed_ms": 5524.232,
+        "layer_elapsed_ms": 119124.891,
+        "total_elapsed_ms": 130542.81,
+        "server_elapsed_ms": 119075.71
+      }
+    }
+  ],
+  "metadata": {
+    "run_utc": "2026-04-14T13:58:26.878682+00:00",
+    "daemon_base_url": "http://127.0.0.1:8011",
+    "session_endpoint": "/api/session",
+    "layer_endpoint": "/api/layer",
+    "layer_idx": 0,
+    "operation": "qkv",
+    "vector_size": 2048,
+    "seed": 0,
+    "session_status_code": 200,
+    "layer_status_code": 200,
+    "session_id_present": true,
+    "result_count": 3,
+    "session_elapsed_ms": 5524.232,
+    "layer_elapsed_ms": 119124.891,
+    "total_elapsed_ms": 130542.81,
+    "server_elapsed_ms": 119075.71
+  }
+}

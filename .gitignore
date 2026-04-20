@@ -11,5 +11,9 @@ docs/plan.md
 .venv/
 split-inference-env/
 benchmark-server-*.log
+benchmark-snetd-*.log
 .build/
 .local/
+snet_service/snetd.config.sepolia.json
+snet_service/snetd.config.mainnet.json
+snet_service/snetd.config.local.json

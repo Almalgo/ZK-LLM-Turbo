@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-04-14T14:04:00.530177+00:00",
+  "git_sha": "5a6e68243c677976b408bbaa785c412e37bff171",
+  "ckks_params": {
+    "poly_modulus_degree": 16384,
+    "coeff_mod_bit_sizes": [
+      60,
+      40,
+      40,
+      40,
+      40,
+      40,
+      60
+    ],
+    "global_scale": 1099511627776,
+    "use_galois_keys": true,
+    "use_relin_keys": true
+  },
+  "results": [
+    {
+      "name": "m5_snet_reliability",
+      "status": "fail",
+      "metadata": {
+        "run_utc": "2026-04-14T14:01:12.449003+00:00",
+        "daemon_base_url": "http://127.0.0.1:8012",
+        "session_endpoint": "/api/session",
+        "layer_endpoint": "/api/layer",
+        "layer_idx": 0,
+        "operation": "qkv",
+        "vector_size": 2048,
+        "attempts": 3,
+        "concurrency": 1,
+        "seed": 0,
+        "timeout_seconds": 300.0,
+        "run_total_elapsed_ms": 167916.905,
+        "successes": 1,
+        "failures": 2,
+        "success_rate": 0.333333,
+        "min_success_rate": 1.0,
+        "total_p50_ms": 146690.007,
+        "total_p95_ms": 146690.007,
+        "session_p50_ms": 5388.348,
+        "session_p95_ms": 5388.348,
+        "layer_p50_ms": 134967.03,
+        "layer_p95_ms": 134967.03,
+        "error_examples": [
+          "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+          "HTTPConnectionPool(host='127.0.0.1', port=8012): Max retries exceeded with url: /api/session (Caused by NewConnectionError(\"HTTPConnection(host='127.0.0.1', port=8012): Failed to establish a new connection: [Errno 111] Connection refused\"))"
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "run_utc": "2026-04-14T14:01:12.449003+00:00",
+    "daemon_base_url": "http://127.0.0.1:8012",
+    "session_endpoint": "/api/session",
+    "layer_endpoint": "/api/layer",
+    "layer_idx": 0,
+    "operation": "qkv",
+    "vector_size": 2048,
+    "attempts": 3,
+    "concurrency": 1,
+    "seed": 0,
+    "timeout_seconds": 300.0,
+    "run_total_elapsed_ms": 167916.905,
+    "successes": 1,
+    "failures": 2,
+    "success_rate": 0.333333,
+    "min_success_rate": 1.0,
+    "total_p50_ms": 146690.007,
+    "total_p95_ms": 146690.007,
+    "session_p50_ms": 5388.348,
+    "session_p95_ms": 5388.348,
+    "layer_p50_ms": 134967.03,
+    "layer_p95_ms": 134967.03,
+    "error_examples": [
+      "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+      "HTTPConnectionPool(host='127.0.0.1', port=8012): Max retries exceeded with url: /api/session (Caused by NewConnectionError(\"HTTPConnection(host='127.0.0.1', port=8012): Failed to establish a new connection: [Errno 111] Connection refused\"))"
+    ]
+  }
+}
