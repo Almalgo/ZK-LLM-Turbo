@@ -13,6 +13,28 @@ This directory contains starter templates for routing SingularityNet daemon traf
 
 The legacy `POST /api/infer` endpoint is backward-compat only and not the primary Milestone 5 route.
 
+## Hosting-as-a-Service (HaaS) in Publisher (recommended)
+
+If you chose **Hosting-as-a-Service (HaaS)** in the Publisher portal, you do not need local `etcd` setup and you normally do not run `snetd` locally.
+
+For HaaS, your repository only needs to expose the AI service API that the hosted daemon will call:
+
+- `POST /api/session`
+- `POST /api/layer`
+
+Minimum publish requirements:
+
+- Public and reachable service endpoint URL (HTTP/HTTPS)
+- Optional request authentication (if required by your deployment)
+- Stable backend process with these routes available
+
+Operational difference:
+
+- Self-hosted: you manage daemon + service + SSL + `etcd` + scaling
+- HaaS: SNET manages daemon, SSL, and managed `etcd` for you
+
+You can still use local `snet_service/*` configs for preflight smoke/reliability checks; they are optional when publishing with HaaS.
+
 ## Files
 
 - `snetd.config.sepolia.template.json`

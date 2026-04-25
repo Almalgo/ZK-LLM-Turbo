@@ -1,6 +1,6 @@
 # Milestone 5: SingularityNet Integration Report
 
-Date: 2026-04-14
+Date: 2026-04-25
 
 ## Goal
 
@@ -68,6 +68,14 @@ Capabilities:
 
 ## Artifacts Produced in This Session
 
+Mainnet config artifact (prepared locally):
+
+- `snet_service/snetd.config.mainnet.json`
+  - `organization_id`: `almalgo_labs`
+  - `service_id`: `zk_llm`
+  - `auto_ssl_domain`: `localhost` (for local smoke/running), production requires routable `DOMAIN`
+  - `ethereum_json_rpc_http_endpoint`: `https://cloudflare-eth.com`
+
 Local preflight artifacts (backend endpoint validation):
 
 - `benchmarks/results/m5_snet_smoke_local.json` (pass)
@@ -78,11 +86,11 @@ Additional daemon-local probe artifact:
 
 - `benchmarks/results/m5_snet_smoke_daemon_local.json` (current status: fail; daemon exited before serving target endpoint)
 
-Target Milestone 5 artifacts (daemon/Sepolia evidence) pending runtime publication flow:
+Target Milestone 5 artifacts (mainnet evidence) pending runtime publication flow:
 
-- `benchmarks/results/m5_snet_smoke_sepolia.json`
-- `benchmarks/results/m5_reliability_sepolia.json`
-- `benchmarks/results/m5_recovery_sepolia.json`
+- `benchmarks/results/m5_snet_smoke_mainnet.json`
+- `benchmarks/results/m5_reliability_mainnet.json`
+- `benchmarks/results/m5_recovery_mainnet.json`
 
 ## Commands Used
 
@@ -108,27 +116,46 @@ Preflight reliability/recovery:
   --recovery-output benchmarks/results/m5_recovery_local.json
 ```
 
-## Remaining Steps to Complete Milestone 5
+## Remaining Steps to Complete Milestone 5 (Mainnet Fast Path)
 
-1. Fill daemon runtime config with real values:
-   - `ORG_ID`, `SERVICE_ID`, `DOMAIN`, `SEPOLIA_RPC_URL`, `MAINNET_RPC_URL`
-2. Launch daemon with Sepolia config and run:
-   - `scripts/m5_snet_smoke.py` against daemon endpoint
-   - `scripts/m5_snet_reliability.py` against daemon endpoint
-3. Save Sepolia evidence artifacts under `benchmarks/results/`.
-4. Publish service on Mainnet and verify public link.
-5. Update this report with:
+1. Provide real values:
+   - `DOMAIN`
+   - `MAINNET_RPC_URL`
+2. Fill those values in `snet_service/snetd.config.mainnet.json`.
+3. Launch backend + `snetd` with mainnet config.
+4. Run:
+   - `python scripts/m5_snet_smoke.py --base-url "http://127.0.0.1:7000" --output benchmarks/results/m5_snet_smoke_mainnet.json`
+   - `python scripts/m5_snet_reliability.py --base-url "http://127.0.0.1:7000" --attempts 20 --concurrency 4 --reliability-output benchmarks/results/m5_reliability_mainnet.json --recovery-output benchmarks/results/m5_recovery_mainnet.json`
+5. Save mainnet evidence artifacts under `benchmarks/results/`.
+6. Publish service on Mainnet and verify public link.
+7. Update this report with:
    - final daemon endpoint/public service link
-   - Sepolia and Mainnet verification evidence
-   - final pass/fail status for milestone deliverables.
+   - mainnet verification evidence
+   - pass/fail status for milestone deliverables.
+
+## Verified Runtime Status (2026-04-25)
+
+Tooling install status:
+- Installed `snetd` to `~/.local/bin/snetd` (v6.2.1) and confirmed binary availability.
+
+Mainnet daemon execution status:
+- Starting `snetd` with `snet_service/snetd.config.mainnet.json` and `almalgo_labs`/`zk_llm` fails at startup:
+  - `error retrieving contract details for the given organization and service ids Internal error`.
+- Non-chain debug attempt (`"blockchain_enabled": false`, `auto_ssl_domain: ""`) allows daemon to start but smoke probe fails:
+  - `Session response missing 'session_id'` in `benchmarks/results/m5_snet_smoke_mainnet.json`.
+  - This indicates non-chain mode is not producing mainnet-usable session handoff behavior.
 
 ## Current Blockers
 
-Mainnet publication and public service link verification are blocked pending operator-provided chain/runtime credentials and funded signer details.
+Mainnet publication and public service link verification are currently blocked pending:
+
+- Runtime environment setup (`python`/`pip` and dependencies) *(completed)*
+- `snetd` binary availability *(completed)*
+- Confirmed mainnet org/service registration and metadata visibility for `almalgo_labs` + `zk_llm`.
+- Operator-provided runtime values (`DOMAIN`, `MAINNET_RPC_URL`)
+- Funded signer details
 
 Additional blocker observed during local daemon preflight:
 
-- `snetd` v6.2.1 crashed with a nil-pointer panic when started in a no-blockchain local mode (`blockchain_enabled=false`) in this environment, preventing stable daemon-local passthrough verification.
-- Crash evidence log: `benchmark-snetd-7021.log`.
-- With `blockchain_enabled=true`, daemon startup failed fast until valid on-chain identifiers are provided (`organization_id`, `service_id`).
-- Startup failure evidence log: `benchmark-snetd-7022.log`.
+- `snetd` v6.2.1 can panic with nil-pointer on shutdown in this non-production local run pattern.
+- `blockchain_enabled=true` startup currently blocks on unresolved mainnet org/service contract details.
