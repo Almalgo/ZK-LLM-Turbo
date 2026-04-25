@@ -23,6 +23,24 @@ Legacy endpoint status:
 
 - `POST /api/infer` remains backward-compat only and is not the primary Milestone 5 route.
 
+### API contract for Hosting-as-a-Service
+
+- API method set must be represented in a **single proto file**.
+- Created for this run:
+  - `snet_service/proto/zk_llm_http_api.proto`
+- Service/methods expected by Publisher:
+  - `ZKLLMService`
+  - `Session` -> `POST /api/session`
+  - `Layer` -> `POST /api/layer`
+- Request/response field names aligned with backend handlers:
+  - `public_context_b64`
+  - `session_id`
+  - `layer_idx`
+  - `operation`
+  - `encrypted_vectors_b64`
+  - `encrypted_results_b64`
+  - `elapsed_ms` (optional)
+
 ## Delivered Implementation
 
 ### Task 1: daemon scaffolding
@@ -122,13 +140,16 @@ Preflight reliability/recovery:
    - `DOMAIN`
    - `MAINNET_RPC_URL`
 2. Fill those values in `snet_service/snetd.config.mainnet.json`.
-3. Launch backend + `snetd` with mainnet config.
+3. Launch backend + `snetd` with mainnet config (or switch to Publisher HaaS flow where SNET hosts the daemon).
 4. Run:
    - `python scripts/m5_snet_smoke.py --base-url "http://127.0.0.1:7000" --output benchmarks/results/m5_snet_smoke_mainnet.json`
    - `python scripts/m5_snet_reliability.py --base-url "http://127.0.0.1:7000" --attempts 20 --concurrency 4 --reliability-output benchmarks/results/m5_reliability_mainnet.json --recovery-output benchmarks/results/m5_recovery_mainnet.json`
 5. Save mainnet evidence artifacts under `benchmarks/results/`.
 6. Publish service on Mainnet and verify public link.
-7. Update this report with:
+   - If using HaaS, confirm local etcd endpoint is not required.
+7. Confirm API upload is exactly one file:
+   - `snet_service/proto/zk_llm_http_api.proto`
+8. Update this report with:
    - final daemon endpoint/public service link
    - mainnet verification evidence
    - pass/fail status for milestone deliverables.

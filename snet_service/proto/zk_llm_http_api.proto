@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package zk_llm;
+
+import "google/api/annotations.proto";
+
+option go_package = "zk_llm.api";
+
+service ZKLLMService {
+  rpc Session(SessionRequest) returns (SessionResponse) {
+    option (google.api.http) = {
+      post: "/api/session"
+      body: "*"
+    };
+  }
+
+  rpc Layer(LayerRequest) returns (LayerResponse) {
+    option (google.api.http) = {
+      post: "/api/layer"
+      body: "*"
+    };
+  }
+}
+
+message SessionRequest {
+  string public_context_b64 = 1;
+}
+
+message SessionResponse {
+  string session_id = 1;
+}
+
+message LayerRequest {
+  string session_id = 1;
+  int32 layer_idx = 2;
+  string operation = 3;
+  repeated string encrypted_vectors_b64 = 4;
+  repeated int32 chunk_sizes = 5;
+  repeated int32 pack_counts = 6;
+}
+
+message LayerResponse {
+  repeated string encrypted_results_b64 = 1;
+  string operation = 2;
+  int32 layer_idx = 3;
+  double elapsed_ms = 4;
+}

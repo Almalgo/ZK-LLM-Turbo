@@ -35,11 +35,29 @@ Operational difference:
 
 You can still use local `snet_service/*` configs for preflight smoke/reliability checks; they are optional when publishing with HaaS.
 
+## API contract for Publisher (HTTP + 1 proto file)
+
+For SNET Hosting-as-a-Service HTTP service registration, use one proto file:
+
+- `snet_service/proto/zk_llm_http_api.proto`
+
+Required methods and mapping:
+
+- `Session` -> `POST /api/session`
+  - request: `public_context_b64`
+  - response: `session_id`
+- `Layer` -> `POST /api/layer`
+  - request: `session_id`, `layer_idx`, `operation`, `encrypted_vectors_b64`
+  - response: `encrypted_results_b64`, `operation`, `layer_idx`, optional `elapsed_ms`
+
+Upload exactly this single proto file in Publisher (HTTP services are one-proto limited).
+
 ## Files
 
 - `snetd.config.sepolia.template.json`
 - `snetd.config.mainnet.template.json`
 - `snetd.config.local.template.json`
+- `proto/zk_llm_http_api.proto` (single-file HTTP API definition for Publisher)
 
 ## Required Operator Inputs
 
