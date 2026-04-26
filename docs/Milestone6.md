@@ -21,6 +21,15 @@ This milestone focused on hardening the ZK-LLM-Turbo codebase for MVP release wi
 | Auth enabled by default | `server/security.py` | Auth enabled when token is set |
 | Session cleanup | `client/client.py` | Sessions explicitly deleted on client exit |
 
+### Authentication Compatibility (Milestone 6 Follow-up)
+
+- Added server auth token precedence while preserving legacy env vars:
+  - `ZKLLM_SERVER_AUTH_TOKEN`
+  - `ZKLLM_API_TOKEN`
+  - `AUTH_TOKEN`
+- Kept explicit auth opt-out via `ZKLLM_REQUIRE_API_TOKEN=false`.
+- Added validation for this path in `server/tests/test_security.py`.
+
 ### Reliability Improvements
 
 | Change | File | Description |
@@ -31,7 +40,7 @@ This milestone focused on hardening the ZK-LLM-Turbo codebase for MVP release wi
 
 ### Test Coverage
 
-Added 11 new test files:
+Added 11 new test files and one security follow-up test update:
 
 - `client/tests/test_encrypt_embeddings.py`
 - `client/tests/test_encryption_utils.py`
@@ -63,7 +72,7 @@ Total test count: 152 tests
 |-----------|---------|
 | Model | TinyLlama 1.1B (22 layers) |
 | Encryption | CKKS via TenSEAL |
-| Polynomial degree | 16384 (8192 slots) |
+| Polynomial degree | 8192 (4096 slots) |
 | Protocol | 4 round-trips per encrypted layer |
 | Transport | HTTP + WebSocket |
 
@@ -72,6 +81,11 @@ Total test count: 152 tests
 ```bash
 pytest -m "not slow"
 ```
+
+Validation at report close:
+
+- `pytest -m "not slow"` -> 152 passed, 3 deselected
+- `pytest -m "slow"` -> 3 passed, 152 deselected
 
 ## Known Limitations
 
@@ -105,6 +119,12 @@ pytest -m "not slow"
 
 ### Documentation
 - `notebooks/public_mvp_demo.ipynb`
+
+### Milestone 6 Commits (latest)
+
+- `8fe9243` — Update security and session hardening with tests
+- `5465f9e` — Refresh milestone 6 test count metadata
+- `6d42d3b` — Add server auth token alias and update milestone count
 
 ## Performance Characteristics
 
