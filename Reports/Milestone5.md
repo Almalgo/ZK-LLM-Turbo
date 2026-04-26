@@ -126,6 +126,7 @@ curl -i http://127.0.0.1:8000/heartbeat
 ## 8) Current Blockers / Remaining Gaps
 
 - Public endpoint verification not yet completed against final deployed HaaS route (service must be ONLINE in SNET portal).
+- Logs and action buttons are gated by SNET service status; portal controls may be hidden while status is not `UP`.
 - Signer/payment metadata completion in SNET publisher still required:
   - Free Call Signer Address
   - Metering Address

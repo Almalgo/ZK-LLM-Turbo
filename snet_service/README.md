@@ -57,6 +57,29 @@ Operational health check contract:
 
 Upload exactly this single proto file in Publisher (HTTP services are one-proto limited).
 
+## Hosted dashboard action controls: why they can disappear
+
+When the service status is not `UP` (for example `OFFLINE`, `UNHEALTHY`, or still initializing), the portal may hide service controls and keep Logs unavailable.
+
+- This is expected if heartbeat is failing.
+- You typically need at least a successful external heartbeat probe and visible endpoint health before actions become available.
+
+Recommended operator checks while in dashboard read-only state:
+
+1. Confirm the service is selected as:
+   - Organization: `almalgo_labs`
+   - Service: `zk_llm1`
+   - Hosting-as-a-Service enabled
+2. Confirm the daemon endpoint is the public backend base URL, not the HaaS orchestrator API URL.
+3. Confirm both routes return 200:
+   - `GET /health`
+   - `GET /heartbeat`
+4. Run public smoke/reliability checks against the same URL before returning to the portal:
+   - `python3 scripts/m5_snet_smoke.py --base-url "<PUBLIC_BASE_URL>" --output benchmarks/results/m5_snet_smoke_mainnet.json`
+   - `python3 scripts/m5_snet_reliability.py --base-url "<PUBLIC_BASE_URL>" --attempts 20 --concurrency 4 --reliability-output benchmarks/results/m5_reliability_mainnet.json --recovery-output benchmarks/results/m5_recovery_mainnet.json`
+5. Reopen the service page after propagation.
+   - Logs and action controls should appear once status becomes `UP`.
+
 ## Files
 
 - `snetd.config.sepolia.template.json`
