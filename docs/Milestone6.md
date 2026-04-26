@@ -45,7 +45,7 @@ Added 11 new test files:
 - `client/tests/test_e2e_session_lifecycle.py`
 - `client/tests/test_e2e_network_errors.py`
 
-Total test count: 114 → 135 tests
+Total test count: 151 tests
 
 ### Public Deliverables
 
