@@ -141,8 +141,3 @@ curl -i http://127.0.0.1:8000/heartbeat
 - Mainnet portal link: TODO (publish and paste final service URL)
 - Proto upload: `snet_service/proto/zk_llm_http_api.proto` uploaded as a single file zip (`zk_llm_http_api.zip`)
 - Metering address + Free Call Signer: TODO (confirm funded wallet addresses in publisher)
-
-## 10) Finalization Status
-
-- Milestone 5 is **partially complete** (repo and validation scaffolding done, heartbeat/API contract aligned).
-- Outstanding item: confirm final public mainnet service runs against live HaaS URL and refresh the evidence matrix to final-pass status.
