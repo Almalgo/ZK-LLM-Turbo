@@ -25,6 +25,9 @@ Legacy endpoint status:
 
 ### API contract for Hosting-as-a-Service
 
+- Operational health endpoint:
+  - `GET /heartbeat`
+
 - API method set must be represented in a **single proto file**.
 - Created for this run:
   - `snet_service/proto/zk_llm_http_api.proto`
@@ -90,7 +93,7 @@ Mainnet config artifact (prepared locally):
 
 - `snet_service/snetd.config.mainnet.json`
   - `organization_id`: `almalgo_labs`
-  - `service_id`: `zk_llm`
+  - `service_id`: `zk_llm1`
   - `auto_ssl_domain`: `localhost` (for local smoke/running), production requires routable `DOMAIN`
   - `ethereum_json_rpc_http_endpoint`: `https://cloudflare-eth.com`
 
@@ -160,7 +163,7 @@ Tooling install status:
 - Installed `snetd` to `~/.local/bin/snetd` (v6.2.1) and confirmed binary availability.
 
 Mainnet daemon execution status:
-- Starting `snetd` with `snet_service/snetd.config.mainnet.json` and `almalgo_labs`/`zk_llm` fails at startup:
+- Starting `snetd` with `snet_service/snetd.config.mainnet.json` and `almalgo_labs`/`zk_llm1` fails at startup:
   - `error retrieving contract details for the given organization and service ids Internal error`.
 - Non-chain debug attempt (`"blockchain_enabled": false`, `auto_ssl_domain: ""`) allows daemon to start but smoke probe fails:
   - `Session response missing 'session_id'` in `benchmarks/results/m5_snet_smoke_mainnet.json`.
@@ -172,7 +175,7 @@ Mainnet publication and public service link verification are currently blocked p
 
 - Runtime environment setup (`python`/`pip` and dependencies) *(completed)*
 - `snetd` binary availability *(completed)*
-- Confirmed mainnet org/service registration and metadata visibility for `almalgo_labs` + `zk_llm`.
+- Confirmed mainnet org/service registration and metadata visibility for `almalgo_labs` + `zk_llm1`.
 - Operator-provided runtime values (`DOMAIN`, `MAINNET_RPC_URL`)
 - Funded signer details
 

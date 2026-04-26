@@ -50,6 +50,11 @@ Required methods and mapping:
   - request: `session_id`, `layer_idx`, `operation`, `encrypted_vectors_b64`
   - response: `encrypted_results_b64`, `operation`, `layer_idx`, optional `elapsed_ms`
 
+Operational health check contract:
+
+- `GET /heartbeat` should return HTTP 200 for SNET heartbeat checks.
+- `GET /health` is also kept for internal monitoring parity.
+
 Upload exactly this single proto file in Publisher (HTTP services are one-proto limited).
 
 ## Files
@@ -85,7 +90,7 @@ Upload exactly this single proto file in Publisher (HTTP services are one-proto 
 
 4. Run daemon with your chosen config:
 
-   - `snetd -c snet_service/snetd.config.sepolia.json`
+  - `snetd -c snet_service/snetd.config.sepolia.json`
 
 5. Run smoke validation against daemon endpoint:
 

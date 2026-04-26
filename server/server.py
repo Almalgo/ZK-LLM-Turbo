@@ -103,6 +103,11 @@ app = FastAPI(title="ZK-LLM-Turbo Server (Milestone 4)", lifespan=lifespan)
 async def health() -> dict:
     return {"status": "ok"}
 
+
+@app.get("/heartbeat")
+async def heartbeat() -> dict:
+    return {"status": "ok"}
+
 app.include_router(inference_router)
 app.include_router(session_router)
 
