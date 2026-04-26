@@ -20,6 +20,7 @@ _OPENFHE_KEY_STATE: dict[int, dict[str, Any]] = {}
 _OPENFHE_KEY_STATE_LOCK = threading.Lock()
 
 OPENFHE_IMPORT_ERROR: str | None = None
+_openfhe = None
 try:
     import openfhe as _openfhe  # noqa: F401
     OPENFHE_AVAILABLE = True

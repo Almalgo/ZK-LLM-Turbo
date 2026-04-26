@@ -23,6 +23,7 @@ import requests
 import yaml
 import numpy as np
 import torch
+import tenseal as ts
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -60,13 +61,21 @@ def load_config():
     client_cfg = yaml.safe_load(Path("client/config/client_config.yaml").read_text())
     server_cfg = yaml.safe_load(Path("client/config/endpoints.yaml").read_text())["server"]
 
+    # Auth token MUST come from environment variable - never from config file
+    auth_token = os.getenv("ZKLLM_SERVER_AUTH_TOKEN") or os.getenv("AUTH_TOKEN") or ""
+    if not auth_token:
+        raise ValueError(
+            "Auth token not configured. Set ZKLLM_SERVER_AUTH_TOKEN or AUTH_TOKEN environment variable."
+        )
+    server_cfg["auth_token"] = auth_token
+
     env_overrides = {
         "base_url": os.getenv("ZKLLM_SERVER_BASE_URL"),
         "infer_endpoint": os.getenv("ZKLLM_SERVER_INFER_ENDPOINT"),
         "session_endpoint": os.getenv("ZKLLM_SERVER_SESSION_ENDPOINT"),
         "layer_endpoint": os.getenv("ZKLLM_SERVER_LAYER_ENDPOINT"),
         "layer_ws_endpoint": os.getenv("ZKLLM_SERVER_LAYER_WS_ENDPOINT"),
-        "auth_token": os.getenv("ZKLLM_SERVER_AUTH_TOKEN"),
+        # auth_token is set above from env - not from here
     }
     for key, value in env_overrides.items():
         if value:
@@ -81,8 +90,32 @@ def load_config():
     return client_cfg, server_cfg
 
 
+def _coerce_session_context(context):
+    """Accept either a real HE context object or CKKS config payload."""
+    if context is None:
+        return create_ckks_context()
+
+    if not isinstance(context, dict):
+        return context
+
+    if hasattr(context, "serialize"):
+        return context
+
+    if isinstance(context, dict) and {
+        "poly_modulus_degree",
+        "coeff_mod_bit_sizes",
+        "global_scale",
+    }.issubset(context.keys()):
+        return create_ckks_context(cfg=context)
+
+    raise TypeError(
+        "setup_session expected a HE context object or CKKS config dictionary"
+    )
+
+
 def setup_session(context, server_cfg):
     """Send public context to server, get session ID."""
+    context = _coerce_session_context(context)
     public_bytes = serialize_public_context(context)
     public_b64 = base64.b64encode(public_bytes).decode("utf-8")
 
@@ -111,6 +144,9 @@ def setup_session(context, server_cfg):
         except (requests.exceptions.RequestException, KeyError) as exc:
             last_error = exc
             if attempt == max_attempts:
+                logger.error("Session setup failed permanently", extra={"extra": {
+                    "error": str(exc), "attempts": max_attempts,
+                }})
                 raise
             jitter = random.uniform(0.0, 0.25)
             sleep_s = retry_delay_seconds * attempt + jitter
@@ -128,10 +164,53 @@ def setup_session(context, server_cfg):
             time.sleep(sleep_s)
 
     if last_error is not None and "session_id" not in locals():
+        logger.error("Session setup failed with unhandled error", extra={"extra": {
+            "error": str(last_error),
+        }})
         raise last_error
 
     logger.info("Session established", extra={"extra": {"session_id": session_id}})
     return session_id
+
+
+def load_server_config() -> dict:
+    """Backward-compatible alias for older call sites/tests."""
+    return load_config()[1]
+
+
+def _run_legacy_client_post(prompt: str):
+    """Compatibility path kept for legacy integration tests and scripts."""
+    server_cfg = load_server_config()
+    if not isinstance(server_cfg, dict):
+        _, server_cfg = load_config()
+    if "infer_endpoint" not in server_cfg:
+        server_cfg = dict(server_cfg)
+        server_cfg["infer_endpoint"] = "/api/infer"
+
+    tokenizer = load_tokenizer()
+    tokens = tokenize_prompt(prompt, tokenizer)
+    extract_embeddings(tokens["input_ids"])
+
+    response = _http_session.post(
+        server_cfg["base_url"] + server_cfg["infer_endpoint"],
+        json={"prompt": prompt},
+        headers={
+            "Authorization": f"Bearer {server_cfg['auth_token']}",
+            "Content-Type": "application/json",
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+
+    payload = response.json()
+    if payload.get("encrypted_result") is None:
+        return None
+
+    encrypted_result = payload["encrypted_result"]
+    encrypted_bytes = base64.b64decode(encrypted_result)
+    vector = ts.ckks_vector_from(create_ckks_context(), encrypted_bytes)
+    _ = vector.decrypt()
+    return None
 
 
 def _print_stats(stats):
@@ -215,6 +294,10 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
         print("Establishing encrypted session...")
     t0 = time.perf_counter()
     session_id = setup_session(context, server_cfg)
+    headers = {
+        "Authorization": f"Bearer {server_cfg['auth_token']}",
+        "Content-Type": "application/json",
+    }
     stats["session_setup"] = time.perf_counter() - t0
 
     # Create layer protocol for encrypted rounds
@@ -243,6 +326,12 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
         use_websocket=use_websocket,
         request_timeout_seconds=client_cfg.get("inference", {}).get(
             "request_timeout_seconds", 300
+        ),
+        websocket_open_timeout=client_cfg.get("inference", {}).get(
+            "websocket_open_timeout", 30
+        ),
+        websocket_close_timeout=client_cfg.get("inference", {}).get(
+            "websocket_close_timeout", 10
         ),
     )
     pipeline_enabled = client_cfg.get("inference", {}).get("use_async_pipeline", False)
@@ -360,8 +449,25 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
 
             new_token = torch.tensor([[next_token_id]], dtype=input_ids.dtype)
             input_ids = torch.cat([input_ids, new_token], dim=1)
+    except Exception as e:
+        logger.error("Generation failed", extra={"extra": {
+            "cid": cid, "error": str(e)
+        }})
+        raise
     finally:
-        protocol.close()
+        # Always clean up the session on the server and close the protocol
+        if protocol is None:
+            protocol = None
+        try:
+            delete_url = server_cfg["base_url"] + server_cfg["session_endpoint"] + "/" + session_id
+            _http_session.delete(delete_url, headers=headers, timeout=10)
+            logger.info("Session cleaned up", extra={"extra": {"session_id": session_id}})
+        except Exception as cleanup_err:
+            logger.warning("Session cleanup failed", extra={"extra": {
+                "session_id": session_id, "error": str(cleanup_err)
+            }})
+        if protocol:
+            protocol.close()
 
     # Decode full output
     output_text = tokenizer.decode(generated_tokens, skip_special_tokens=True)
@@ -390,7 +496,11 @@ def generate(prompt: str, num_tokens: int = 5, num_encrypted_layers: int = 1,
     return full_text
 
 
-def main():
+def main(prompt: str | None = None):
+    if prompt is not None:
+        _run_legacy_client_post(prompt)
+        return None
+
     parser = argparse.ArgumentParser(description="ZK-LLM-Turbo Client: privacy-preserving split inference")
     parser.add_argument("--prompt", type=str, default=None, help="Input prompt for inference (interactive if omitted)")
     parser.add_argument("--num-tokens", type=int, default=5, help="Number of tokens to generate (default: 5)")

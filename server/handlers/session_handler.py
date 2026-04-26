@@ -53,6 +53,12 @@ class DeleteSessionResponse(BaseModel):
     deleted: bool
 
 
+class SessionStatusResponse(BaseModel):
+    session_id: str
+    created_at: float
+    last_accessed: float
+
+
 def cleanup_expired_sessions(max_age_seconds: int, now: float | None = None) -> int:
     """Remove sessions idle longer than the TTL."""
     now = time.time() if now is None else now
@@ -131,12 +137,39 @@ def get_session(session_id: str):
     return entry.context
 
 
+@router.get("/api/session/{session_id}", response_model=SessionStatusResponse)
+async def get_session_status(session_id: str):
+    """Read session liveness and timestamps."""
+    entry = _sessions.get(session_id)
+    if entry is None:
+        logger.warning(
+            "Session not found for lookup",
+            extra={"extra": {"session_id": session_id}},
+        )
+        raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+    entry.last_accessed = time.time()
+    return SessionStatusResponse(
+        session_id=session_id,
+        created_at=entry.created_at,
+        last_accessed=entry.last_accessed,
+    )
+
+
 @router.delete("/api/session/{session_id}", response_model=DeleteSessionResponse)
 async def delete_session(session_id: str):
     """Delete a session explicitly."""
     if session_id not in _sessions:
+        logger.warning("Session not found for deletion", extra={"extra": {"session_id": session_id}})
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
-    del _sessions[session_id]
+    try:
+        del _sessions[session_id]
+    except Exception as e:
+        logger.error("Failed to delete session", extra={"extra": {
+            "session_id": session_id, "error": str(e)
+        }})
+        raise HTTPException(status_code=500, detail=f"Failed to delete session: {e}")
+
     logger.info("Session deleted", extra={"extra": {"session_id": session_id}})
     return DeleteSessionResponse(session_id=session_id, deleted=True)

@@ -60,6 +60,8 @@ class EncryptedLayerProtocol:
         use_poly_silu: bool = False,
         use_websocket: bool = False,
         request_timeout_seconds: float = 300,
+        websocket_open_timeout: float = 30,
+        websocket_close_timeout: float = 10,
     ):
         self.context = context
         self.session_id = session_id
@@ -75,6 +77,8 @@ class EncryptedLayerProtocol:
         self.use_poly_silu = use_poly_silu
         self.use_websocket = use_websocket
         self.request_timeout_seconds = request_timeout_seconds
+        self.websocket_open_timeout = websocket_open_timeout
+        self.websocket_close_timeout = websocket_close_timeout
         self._kv_cache = {}  # layer_idx -> {"k": ndarray, "v": ndarray}
         self._round_metrics = []
         self._websocket = None
@@ -98,12 +102,14 @@ class EncryptedLayerProtocol:
 
     def _ensure_websocket(self):
         if self._websocket is None:
+            websocket_open_timeout = getattr(self, "websocket_open_timeout", 30)
+            websocket_close_timeout = getattr(self, "websocket_close_timeout", 10)
             self._websocket = connect(
                 self.websocket_url,
                 additional_headers={"Authorization": f"Bearer {self.auth_token}"},
                 compression=None,
-                open_timeout=30,
-                close_timeout=10,
+                open_timeout=websocket_open_timeout,
+                close_timeout=websocket_close_timeout,
                 ping_interval=None,
                 max_size=None,
             )
@@ -140,7 +146,7 @@ class EncryptedLayerProtocol:
         if not vectors:
             return []
 
-        pack_width = max(1, min(max_pack, SLOT_COUNT // dim))
+        pack_width = max(1, min(max_pack, (SLOT_COUNT - 1) // dim))
         packed = []
         for start in range(0, len(vectors), pack_width):
             chunk = vectors[start : start + pack_width]
