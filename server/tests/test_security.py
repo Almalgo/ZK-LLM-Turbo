@@ -6,6 +6,7 @@ from server.security import _auth_required, _get_required_token, _is_secure_env_
 def test_auth_disabled_when_no_token(monkeypatch):
     monkeypatch.delenv("AUTH_TOKEN", raising=False)
     monkeypatch.delenv("ZKLLM_API_TOKEN", raising=False)
+    monkeypatch.delenv("ZKLLM_SERVER_AUTH_TOKEN", raising=False)
     monkeypatch.setenv("ZKLLM_REQUIRE_API_TOKEN", "false")
     assert _get_required_token() == ""
 
@@ -31,5 +32,13 @@ def test_secure_env_enabled_when_token_set(monkeypatch):
 def test_secure_env_disabled_when_no_token(monkeypatch):
     monkeypatch.delenv("AUTH_TOKEN", raising=False)
     monkeypatch.delenv("ZKLLM_API_TOKEN", raising=False)
+    monkeypatch.delenv("ZKLLM_SERVER_AUTH_TOKEN", raising=False)
     monkeypatch.setenv("ZKLLM_REQUIRE_API_TOKEN", "false")
     assert _is_secure_env_enabled() is False
+
+
+def test_server_auth_token_alias(monkeypatch):
+    monkeypatch.delenv("AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("ZKLLM_API_TOKEN", raising=False)
+    monkeypatch.setenv("ZKLLM_SERVER_AUTH_TOKEN", "server-token")
+    assert _get_required_token() == "server-token"
