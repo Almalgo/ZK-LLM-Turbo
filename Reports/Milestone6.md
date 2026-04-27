@@ -60,7 +60,7 @@ Total test count: 152 tests
 
 ### Public Deliverables
 
-1. **Public Jupyter Notebook**: `notebooks/public_mvp_demo.ipynb`
+1. **Public Jupyter Notebook**: `notebooks/milestone6-demo.ipynb`
    - Demonstrates privacy guarantee (server cannot decrypt)
    - Shows HE matrix multiplication
    - Compares non-linear ops with PyTorch
@@ -91,7 +91,7 @@ Total test count: 152 tests
 | Fast test gate | `pytest -m "not slow"` | 152 passed |
 | Slow test gate | `pytest -m "slow"` | 3 passed |
 | Reported test count | `Reports/Milestone6.md` section "Test Coverage" | 152 tests |
-| Public notebook path | `notebooks/public_mvp_demo.ipynb` | Present |
+| Public notebook path | `notebooks/milestone6-demo.ipynb` | Present |
 | Auth compatibility | `server/security.py`, `server/tests/test_security.py` | Compatible with `ZKLLM_SERVER_AUTH_TOKEN`, `ZKLLM_API_TOKEN`, `AUTH_TOKEN` |
 | Session lifecycle robustness | `client/tests/test_e2e_session_lifecycle.py` | Coverage added for expiry/reconnect/session cleanup |
 | Network failure coverage | `client/tests/test_e2e_network_errors.py` | Timeout/connection failures mocked and asserted |
@@ -138,7 +138,7 @@ Validation at report close:
 - All listed in Test Coverage section
 
 ### Documentation
-- `notebooks/public_mvp_demo.ipynb`
+- `notebooks/milestone6-demo.ipynb`
 
 ### Milestone 6 Commits (latest)
 

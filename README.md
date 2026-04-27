@@ -96,7 +96,7 @@ A notebook demonstrating:
 * Payload building
 * Simulated server handling
 
-File: `notebooks/public_mvp_demo.ipynb`
+File: `notebooks/milestone6-demo.ipynb`
 
 Runs fully offline.
 
