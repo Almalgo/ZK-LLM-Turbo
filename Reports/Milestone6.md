@@ -9,6 +9,8 @@ Deliver Milestone 6 with:
 2. Public Jupyter notebook for public tests
 3. Final report
 
+This report is the project final deliverable snapshot at the close of Milestone 6.
+
 ## Summary
 
 This milestone focused on hardening the ZK-LLM-Turbo codebase for MVP release with improved security, reliability, observability, and test coverage.
@@ -76,6 +78,24 @@ Total test count: 152 tests
 | Protocol | 4 round-trips per encrypted layer |
 | Transport | HTTP + WebSocket |
 
+### Repository Finalization (post-M6)
+
+- Milestone 6 report was moved to canonical location under `Reports/`.
+- Legacy planning and intermediate status markdown under `docs/` were removed to keep the project tree delivery-focused.
+- Public notebook artifacts were kept in `notebooks/`.
+
+## Final Validation Matrix
+
+| Area | Evidence | Result |
+|------|----------|--------|
+| Fast test gate | `pytest -m "not slow"` | 152 passed |
+| Slow test gate | `pytest -m "slow"` | 3 passed |
+| Reported test count | `Reports/Milestone6.md` section "Test Coverage" | 152 tests |
+| Public notebook path | `notebooks/public_mvp_demo.ipynb` | Present |
+| Auth compatibility | `server/security.py`, `server/tests/test_security.py` | Compatible with `ZKLLM_SERVER_AUTH_TOKEN`, `ZKLLM_API_TOKEN`, `AUTH_TOKEN` |
+| Session lifecycle robustness | `client/tests/test_e2e_session_lifecycle.py` | Coverage added for expiry/reconnect/session cleanup |
+| Network failure coverage | `client/tests/test_e2e_network_errors.py` | Timeout/connection failures mocked and asserted |
+
 ## Test Command
 
 ```bash
@@ -125,6 +145,7 @@ Validation at report close:
 - `8fe9243` — Update security and session hardening with tests
 - `5465f9e` — Refresh milestone 6 test count metadata
 - `6d42d3b` — Add server auth token alias and update milestone count
+- `b9a3c7c` — Canonicalize reports and delete deprecated planning docs
 
 ## Performance Characteristics
 
