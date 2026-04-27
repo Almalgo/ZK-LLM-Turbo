@@ -14,7 +14,8 @@ The current codebase is organized as:
 - `server/`: FastAPI app, session handling, encrypted linear algebra, model weight management
 - `common/`: shared logging utilities
 - `benchmarks/`: benchmark entrypoints and shared reporting helpers
-- `docs/`: plans, findings, and research notes
+- `Reports/`: phase milestone reports
+- `benchmarks/results/`: readiness artifacts and experimental outputs
 
 ## Architecture Notes
 
@@ -32,11 +33,10 @@ Current Phase 1 findings that matter for future work:
 - `T1.3` multi-token packing is deferred because concatenation-style packing is incompatible with the current TenSEAL `CKKSVector.mm()` path.
 - `T1.4` selective Galois keys is deferred because no safe documented selective-steps API was found in the TenSEAL Python surface used by this repo.
 
-See:
+Recent planning snapshots are archived in:
 
-- `docs/ZK-LLM-OPTIMIZATION-ACTION-PLAN.md`
-- `docs/T1.3-MULTI-TOKEN-PACKING-SPIKE.md`
-- `docs/T1.4-SELECTIVE-GALOIS-KEYS-FINDING.md`
+- `benchmarks/results/`
+- `Reports/`
 
 ## CKKS Parameters
 

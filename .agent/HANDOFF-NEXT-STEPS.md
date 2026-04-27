@@ -15,7 +15,7 @@ pip install -r requirements.txt
 ```bash
 ls snet_service
 ls scripts/m5_snet_*.py
-ls docs/Milestone5.md
+ls Reports/Milestone5.md
 ```
 
 ## 3) Materialize Runtime Config (Sepolia)
@@ -56,7 +56,7 @@ python scripts/m5_snet_reliability.py --base-url "http://<daemon-host>:7000" --r
 
 ## 6) Update Report and Push
 
-Update `docs/Milestone5.md` with:
+Update `Reports/Milestone5.md` with:
 
 - final Sepolia evidence results
 - final public service link (after mainnet publication)

@@ -96,7 +96,7 @@ A notebook demonstrating:
 * Payload building
 * Simulated server handling
 
-File: `notebooks/phase2_hybrid_demo.ipynb`
+File: `notebooks/public_mvp_demo.ipynb`
 
 Runs fully offline.
 
@@ -207,8 +207,7 @@ Recent Phase 3 work is tracked with machine-readable artifacts under `benchmarks
 
 Current top-level decision:
 
-- `benchmarks/results/t3_change_decision.json` -> `supports_change: false`
-- `docs/T3-CHANGE-DECISION.md` -> human-readable decision summary
+- `benchmarks/results/t3_change_decision.json` -> final decision artifact (`supports_change: false`)
 
 Key readiness artifacts:
 
@@ -232,7 +231,7 @@ python benchmarks/run_phase3_gates.py --python "$(which python)"
 python benchmarks/report_t3_change_decision.py
 ```
 
-Outputs are refreshed in `benchmarks/results/`, with summary docs under `docs/`.
+Outputs are refreshed in `benchmarks/results/`, with historical summaries under `Reports/`.
 
 ---
 

@@ -41,11 +41,11 @@ python scripts/m5_snet_reliability.py \
 
 1) Use mainnet template with real values.
 2) Publish/update service and verify publicly reachable service URL.
-3) Record final link and outcome in `docs/Milestone5.md`.
+3) Record final link and outcome in `Reports/Milestone5.md`.
 
 ## Expected Deliverables
 
 - `benchmarks/results/m5_snet_smoke_sepolia.json`
 - `benchmarks/results/m5_reliability_sepolia.json`
 - `benchmarks/results/m5_recovery_sepolia.json`
-- `docs/Milestone5.md`
+- `Reports/Milestone5.md`

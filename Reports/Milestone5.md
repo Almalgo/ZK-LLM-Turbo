@@ -44,7 +44,6 @@ Milestone 5 repository deliverables were implemented to support HaaS + HTTP pass
   - `daemon_type`: `http`
   - `service_endpoint` remains backend-targeted and is configurable per deployment.
 - Added operational health guidance and single-proto upload constraints in `snet_service/README.md`.
-- Updated docs status notes in `docs/Milestone5.md` to reflect service identifier and heartbeat-alignment state.
 - Packaged and uploaded proto zip:
   - `/home/oussama/Downloads/zk_llm_http_api.zip` (single-file zip of `zk_llm_http_api.proto`).
 

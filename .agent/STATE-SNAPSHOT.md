@@ -20,7 +20,7 @@ Date: 2026-04-20
 - Added reliability/recovery harness:
   - `scripts/m5_snet_reliability.py`
 - Added milestone report:
-  - `docs/Milestone5.md`
+- `Reports/Milestone5.md`
 - Updated ignores for local-only configs/logs:
   - `.gitignore`
 - Migrated prior `.agent` file into `.agent/SESSION-CONTEXT.md` and added this handoff bundle.
@@ -56,4 +56,4 @@ Run daemon against Sepolia with real IDs/RPC, then generate:
 - `benchmarks/results/m5_reliability_sepolia.json`
 - `benchmarks/results/m5_recovery_sepolia.json`
 
-and finalize `docs/Milestone5.md` with public service link.
+and finalize `Reports/Milestone5.md` with public service link.

@@ -27,9 +27,7 @@ Deliverables:
 ## Key Existing Evidence (Phase 3)
 
 - `benchmarks/results/t3_change_decision.json` (final support/no-support decision)
-- `docs/T3-CHANGE-DECISION.md`
-- `docs/T3-PHASE3-READINESS-SUMMARY.md`
-- `docs/T3-DECISION-CRITERIA.md`
+- `benchmarks/results/t3_phase3_gate.json`
 
 ## Milestone 5 Working Plan
 
@@ -38,7 +36,7 @@ Deliverables:
 3. Add reliability/load test harness and artifacts
 4. Sepolia registration/publish rehearsal
 5. Mainnet publication and public link verification
-6. Final development report in `docs/Milestone5.md`
+6. Final development report in `Reports/Milestone5.md`
 
 ## Inputs Required from Operator
 
@@ -54,8 +52,8 @@ Deliverables:
 - `benchmarks/results/m5_snet_smoke_sepolia.json`
 - `benchmarks/results/m5_reliability_sepolia.json`
 - `benchmarks/results/m5_recovery_sepolia.json`
-- `docs/Milestone5.md`
+- `Reports/Milestone5.md`
 
 ## Current Handoff Document
 
-- `docs/MILESTONE5-SESSION-HANDOFF.md`
+- `Reports/Milestone5.md`
