@@ -16,14 +16,7 @@ def _error(message: str, error_type: str = "InvalidInput") -> dict:
 
 
 def _health() -> dict:
-    return {
-        "serviceID": "zk_llm1",
-        "status": "SERVING",
-        "service": SERVICE_NAME,
-        "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-        "model_status": "not_loaded",
-        "model_error": None,
-    }
+    return {"serviceID": "zk_llm1", "status": "SERVING"}
 
 
 def _create_session_from_public_context(public_context_b64: str) -> dict:

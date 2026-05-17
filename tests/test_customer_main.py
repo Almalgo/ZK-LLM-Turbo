@@ -4,17 +4,13 @@ from customer_main import run
 def test_health_returns_ok_without_inference():
     result = run({"op": "health"})
 
-    assert result["serviceID"] == "zk_llm1"
-    assert result["status"] == "SERVING"
-    assert result["service"] == "zk-llm-turbo"
-    assert result["model_status"] in {"not_loaded", "loading", "ready", "failed"}
+    assert result == {"serviceID": "zk_llm1", "status": "SERVING"}
 
 
 def test_heartbeat_alias_returns_snet_serving_status():
     result = run({"op": "heartbeat"})
 
-    assert result["serviceID"] == "zk_llm1"
-    assert result["status"] == "SERVING"
+    assert result == {"serviceID": "zk_llm1", "status": "SERVING"}
 
 
 def test_missing_op_returns_structured_error():
