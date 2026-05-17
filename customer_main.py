@@ -17,7 +17,8 @@ def _error(message: str, error_type: str = "InvalidInput") -> dict:
 
 def _health() -> dict:
     return {
-        "status": "ok",
+        "serviceID": "zk_llm1",
+        "status": "SERVING",
         "service": SERVICE_NAME,
         "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
         "model_status": "not_loaded",
@@ -70,7 +71,7 @@ def run(input_data):
     if op in LAYER_OPERATIONS:
         op = "layer"
 
-    if op == "health":
+    if op in {"health", "heartbeat"}:
         return _health()
     if op == "session":
         return _session(input_data)
