@@ -8,7 +8,11 @@ import uuid
 from common.he_backend import serialize_vector, vector_from_bytes
 from common.logging_utils import get_logger
 from server.handlers.session_handler import get_session
-from server.model.weight_manager import get_layer_weights, get_layer_weight_lists
+from server.model.weight_manager import (
+    ModelUnavailableError,
+    get_layer_weights,
+    get_layer_weight_lists,
+)
 from server.inference.he_ops import (
     compute_qkv_projections,
     compute_o_projection,
@@ -218,6 +222,9 @@ async def process_layer(req: LayerRequest):
 
     except HTTPException:
         raise
+    except ModelUnavailableError as e:
+        logger.error("Model unavailable", extra={"extra": {"cid": cid, "error": str(e)}})
+        raise HTTPException(status_code=503, detail=f"Model is not available: {e}")
     except Exception as e:
         logger.error("Layer op failed", extra={"extra": {"cid": cid, "error": str(e)}})
         raise HTTPException(status_code=500, detail=f"Inference error: {e}")
@@ -244,6 +251,9 @@ async def process_layer_binary(request: Request):
 
     except HTTPException:
         raise
+    except ModelUnavailableError as e:
+        logger.error("Model unavailable (binary)", extra={"extra": {"cid": cid, "error": str(e)}})
+        raise HTTPException(status_code=503, detail=f"Model is not available: {e}")
     except Exception as e:
         logger.error("Layer op failed (binary)", extra={"extra": {"cid": cid, "error": str(e)}})
         raise HTTPException(status_code=500, detail=f"Inference error: {e}")
@@ -267,6 +277,9 @@ async def process_layer_websocket(websocket: WebSocket):
         logger.info("Layer websocket disconnected")
     except HTTPException as exc:
         await websocket.close(code=1008, reason=exc.detail)
+    except ModelUnavailableError as e:
+        logger.error("Model unavailable (websocket)", extra={"extra": {"error": str(e)}})
+        await websocket.close(code=1013, reason="Model is not available")
     except Exception as e:
         logger.error("Layer websocket failed", extra={"extra": {"error": str(e)}})
         await websocket.close(code=1011, reason="Inference error")

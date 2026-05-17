@@ -1,4 +1,5 @@
 import os
+from threading import Lock
 
 import torch
 import numpy as np
@@ -12,7 +13,23 @@ _model = None
 _layer_weight_cache: dict[int, dict] = {}
 _layer_weight_lists: dict[int, dict] = {}  # Pre-converted .tolist() cache
 _layer_diagonal_weight_cache: dict[int, dict[str, list[list[float]]]] = {}
+_model_lock = Lock()
+_model_status = "not_loaded"
+_model_error: str | None = None
 MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+
+
+class ModelUnavailableError(RuntimeError):
+    """Raised when the inference model cannot be loaded."""
+
+
+def get_model_status() -> dict[str, str | None]:
+    """Return deployment health details without triggering model loading."""
+    return {
+        "model": MODEL_NAME,
+        "model_status": _model_status,
+        "model_error": _model_error,
+    }
 
 
 def _resolve_model_dtype() -> torch.dtype:
@@ -30,19 +47,34 @@ def _resolve_model_dtype() -> torch.dtype:
 
 def load_model():
     """Load TinyLlama model at server startup. Caches globally."""
-    global _model
-    if _model is not None:
+    global _model, _model_status, _model_error
+    with _model_lock:
+        if _model is not None:
+            return _model
+
+        logger.info("Loading model", extra={"extra": {"model": MODEL_NAME}})
+        _model_status = "loading"
+        _model_error = None
+        model_dtype = _resolve_model_dtype()
+        try:
+            _model = AutoModelForCausalLM.from_pretrained(
+                MODEL_NAME,
+                torch_dtype=model_dtype,
+                low_cpu_mem_usage=True,
+            )
+            _model.eval()
+        except Exception as exc:
+            _model_status = "failed"
+            _model_error = str(exc)
+            logger.error(
+                "Model load failed",
+                extra={"extra": {"model": MODEL_NAME, "error": _model_error}},
+            )
+            raise ModelUnavailableError(_model_error) from exc
+
+        _model_status = "ready"
+        logger.info("Model loaded", extra={"extra": {"model": MODEL_NAME}})
         return _model
-    logger.info("Loading model", extra={"extra": {"model": MODEL_NAME}})
-    model_dtype = _resolve_model_dtype()
-    _model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME,
-        torch_dtype=model_dtype,
-        low_cpu_mem_usage=True,
-    )
-    _model.eval()
-    logger.info("Model loaded", extra={"extra": {"model": MODEL_NAME}})
-    return _model
 
 
 def get_layer_weights(layer_idx: int) -> dict[str, np.ndarray]:

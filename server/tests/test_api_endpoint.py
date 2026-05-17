@@ -3,7 +3,9 @@ from fastapi.routing import APIRoute, APIWebSocketRoute
 from fastapi.testclient import TestClient
 import msgpack
 
+from server import server
 from server.handlers import inference_handler
+from server.model.weight_manager import ModelUnavailableError
 
 
 def test_legacy_infer_route_registered():
@@ -46,3 +48,52 @@ def test_layer_websocket_route_processes_binary_payload(monkeypatch):
 
     assert captured["req_data"] == request_data
     assert isinstance(captured["cid"], str)
+
+
+def test_health_does_not_require_model_load(monkeypatch):
+    monkeypatch.setattr(
+        server,
+        "get_model_status",
+        lambda: {
+            "model": "test-model",
+            "model_status": "not_loaded",
+            "model_error": None,
+        },
+    )
+
+    with TestClient(server.app) as client:
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "model": "test-model",
+        "model_status": "not_loaded",
+        "model_error": None,
+    }
+
+
+def test_layer_returns_503_when_model_unavailable(monkeypatch):
+    app = FastAPI()
+    app.include_router(inference_handler.router)
+
+    monkeypatch.setattr(inference_handler, "get_session", lambda session_id: object())
+
+    def unavailable(layer_idx):
+        raise ModelUnavailableError("model download failed")
+
+    monkeypatch.setattr(inference_handler, "get_layer_weights", unavailable)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/layer",
+            json={
+                "session_id": "session-1",
+                "layer_idx": 0,
+                "operation": "qkv",
+                "encrypted_vectors_b64": [],
+            },
+        )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Model is not available: model download failed"}

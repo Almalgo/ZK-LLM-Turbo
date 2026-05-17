@@ -8,7 +8,7 @@ from server.handlers.session_handler import (
     load_session_config,
     router as session_router,
 )
-from server.model.weight_manager import load_model
+from server.model.weight_manager import get_model_status
 import uvicorn
 from dotenv import load_dotenv
 from common.logging_utils import get_logger
@@ -71,9 +71,8 @@ def _check_he_backend():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load model at startup, cleanup on shutdown."""
-    logger.info("Server starting — loading model...")
-    load_model()
+    """Start lightweight process services without blocking health checks."""
+    logger.info("Server starting")
     _check_he_backend()
     _check_hexl()
     session_cfg = load_session_config()
@@ -84,7 +83,7 @@ async def lifespan(app: FastAPI):
             await asyncio.sleep(session_cfg["cleanup_interval_seconds"])
 
     cleanup_task = asyncio.create_task(_session_cleanup_loop())
-    logger.info("Model loaded, server ready.")
+    logger.info("Server ready")
     try:
         yield
     finally:
@@ -101,7 +100,7 @@ app = FastAPI(title="ZK-LLM-Turbo Server (Milestone 4)", lifespan=lifespan)
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok"}
+    return {"status": "ok", **get_model_status()}
 
 
 @app.get("/heartbeat")
