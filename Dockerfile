@@ -3,6 +3,7 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 ENV ZKLLM_SERVER_MODEL_DTYPE=float32
+ENV PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu
 
 WORKDIR /app
 
@@ -12,8 +13,16 @@ RUN apt-get update \
 
 COPY server/requirements.txt /app/server/requirements.txt
 RUN pip install --upgrade pip \
-    && pip install --extra-index-url https://download.pytorch.org/whl/cpu "torch==2.4.1+cpu" \
     && pip install -r /app/server/requirements.txt
+
+RUN python - <<'PY'
+import fastapi
+import uvicorn
+import tenseal
+import torch
+import transformers
+print("runtime imports ok")
+PY
 
 COPY . /app
 
