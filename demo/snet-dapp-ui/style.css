@@ -1,0 +1,32 @@
+.zkDemo {
+  color: #16202a;
+  max-width: 760px;
+}
+
+.zkHeader {
+  border-bottom: 1px solid #d9e2ec;
+  padding-bottom: 12px;
+}
+
+.zkHeader h3,
+.zkPanel h4 {
+  margin: 0 0 8px;
+}
+
+.zkHeader p,
+.zkPanel p {
+  color: #52616f;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.zkPanel {
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.zkMuted {
+  background: #f8fafc;
+}

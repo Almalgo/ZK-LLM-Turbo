@@ -1,6 +1,24 @@
 # ZK-LLM Turbo Marketplace Demo
 
-Upload `zk-llm-turbo-marketplace-demo.zip` in Publisher as the service demo UI archive.
+For the current Publisher/DApp upload validator, use:
+
+- `demo/zk-llm-turbo-dapp-demo.zip`
+
+That archive is built from the DApp source layout expected by
+`/Downloads/snet-dapp-master.zip`:
+
+```text
+src/assets/thirdPartyServices/almalgo_labs/zk_llm1/
+```
+
+and contains only:
+
+```text
+index.js
+style.css
+```
+
+Older UI Sandbox-style experimental archives are kept only for reference.
 
 This demo uses the `Health` RPC from `snet_service/proto/zk_llm_http_api.proto`.
 It intentionally avoids browser-side CKKS key generation and encrypted vector
