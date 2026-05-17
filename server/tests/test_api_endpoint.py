@@ -5,6 +5,7 @@ import msgpack
 
 from server import server
 from server.handlers import inference_handler
+from server.services import layer_service
 from server.model.weight_manager import ModelUnavailableError
 
 
@@ -85,12 +86,12 @@ def test_layer_returns_503_when_model_unavailable(monkeypatch):
     app = FastAPI()
     app.include_router(inference_handler.router)
 
-    monkeypatch.setattr(inference_handler, "get_session", lambda session_id: object())
+    monkeypatch.setattr(layer_service, "get_session", lambda session_id: object())
 
     def unavailable(layer_idx):
         raise ModelUnavailableError("model download failed")
 
-    monkeypatch.setattr(inference_handler, "get_layer_weights", unavailable)
+    monkeypatch.setattr(layer_service, "get_layer_weights", unavailable)
 
     with TestClient(app) as client:
         response = client.post(

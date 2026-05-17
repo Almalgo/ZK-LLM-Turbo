@@ -104,25 +104,30 @@ def cleanup_excess_sessions(max_sessions: int) -> int:
     return len(evicted_ids)
 
 
+def create_session_from_public_context(public_context_b64: str) -> dict:
+    """Create a session from a base64 public CKKS context."""
+    config = load_session_config()
+    cleanup_expired_sessions(config["session_ttl_seconds"])
+
+    ctx_bytes = base64.b64decode(public_context_b64)
+    context = context_from_public_bytes(ctx_bytes)
+    session_id = str(uuid.uuid4())
+    now = time.time()
+    _sessions[session_id] = SessionEntry(
+        context=context,
+        created_at=now,
+        last_accessed=now,
+    )
+    cleanup_excess_sessions(config["max_sessions"])
+    logger.info("Session created", extra={"extra": {"session_id": session_id}})
+    return {"session_id": session_id}
+
+
 @router.post("/api/session", response_model=SessionResponse)
 async def create_session(req: SessionRequest):
     """Receive a public CKKS context (no secret key) and create a session."""
     try:
-        config = load_session_config()
-        cleanup_expired_sessions(config["session_ttl_seconds"])
-
-        ctx_bytes = base64.b64decode(req.public_context_b64)
-        context = context_from_public_bytes(ctx_bytes)
-        session_id = str(uuid.uuid4())
-        now = time.time()
-        _sessions[session_id] = SessionEntry(
-            context=context,
-            created_at=now,
-            last_accessed=now,
-        )
-        cleanup_excess_sessions(config["max_sessions"])
-        logger.info("Session created", extra={"extra": {"session_id": session_id}})
-        return SessionResponse(session_id=session_id)
+        return SessionResponse(**create_session_from_public_context(req.public_context_b64))
     except Exception as e:
         logger.error("Failed to create session", extra={"extra": {"error": str(e)}})
         raise HTTPException(status_code=400, detail=f"Invalid public context: {e}")
@@ -137,9 +142,8 @@ def get_session(session_id: str):
     return entry.context
 
 
-@router.get("/api/session/{session_id}", response_model=SessionStatusResponse)
-async def get_session_status(session_id: str):
-    """Read session liveness and timestamps."""
+def get_session_status_data(session_id: str) -> dict:
+    """Return session metadata and update last access time."""
     entry = _sessions.get(session_id)
     if entry is None:
         logger.warning(
@@ -149,15 +153,20 @@ async def get_session_status(session_id: str):
         raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
 
     entry.last_accessed = time.time()
-    return SessionStatusResponse(
-        session_id=session_id,
-        created_at=entry.created_at,
-        last_accessed=entry.last_accessed,
-    )
+    return {
+        "session_id": session_id,
+        "created_at": entry.created_at,
+        "last_accessed": entry.last_accessed,
+    }
 
 
-@router.delete("/api/session/{session_id}", response_model=DeleteSessionResponse)
-async def delete_session(session_id: str):
+@router.get("/api/session/{session_id}", response_model=SessionStatusResponse)
+async def get_session_status(session_id: str):
+    """Read session liveness and timestamps."""
+    return SessionStatusResponse(**get_session_status_data(session_id))
+
+
+def delete_session_by_id(session_id: str) -> dict:
     """Delete a session explicitly."""
     if session_id not in _sessions:
         logger.warning("Session not found for deletion", extra={"extra": {"session_id": session_id}})
@@ -172,4 +181,10 @@ async def delete_session(session_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {e}")
 
     logger.info("Session deleted", extra={"extra": {"session_id": session_id}})
-    return DeleteSessionResponse(session_id=session_id, deleted=True)
+    return {"session_id": session_id, "deleted": True}
+
+
+@router.delete("/api/session/{session_id}", response_model=DeleteSessionResponse)
+async def delete_session(session_id: str):
+    """Delete a session explicitly."""
+    return DeleteSessionResponse(**delete_session_by_id(session_id))
