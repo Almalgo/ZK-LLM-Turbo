@@ -7,6 +7,13 @@ import "google/api/annotations.proto";
 option go_package = "zk_llm.api";
 
 service ZKLLMService {
+  rpc Health(HealthRequest) returns (HealthResponse) {
+    option (google.api.http) = {
+      post: "/health"
+      body: "*"
+    };
+  }
+
   rpc Session(SessionRequest) returns (SessionResponse) {
     option (google.api.http) = {
       post: "/api/session"
@@ -20,6 +27,18 @@ service ZKLLMService {
       body: "*"
     };
   }
+}
+
+message HealthRequest {
+  string op = 1;
+}
+
+message HealthResponse {
+  string status = 1;
+  string service = 2;
+  string model = 3;
+  string model_status = 4;
+  string model_error = 5;
 }
 
 message SessionRequest {

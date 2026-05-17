@@ -119,6 +119,9 @@ For SNET Hosting-as-a-Service HTTP service registration, use one proto file:
 
 Required methods and mapping:
 
+- `Health` -> `POST /health`
+  - request: `op` (set to `health` for Marketplace demo calls)
+  - response: `status`, `service`, `model`, `model_status`, optional `model_error`
 - `Session` -> `POST /api/session`
   - request: `public_context_b64`
   - response: `session_id`
@@ -133,6 +136,19 @@ Operational health check contract:
 - `GET /health` is also kept for internal monitoring parity.
 
 Upload exactly this single proto file in Publisher (HTTP services are one-proto limited).
+
+## Marketplace demo UI
+
+The Publisher demo archive is tracked at:
+
+- `demo/zk-llm-turbo-marketplace-demo.zip`
+
+The source files are in:
+
+- `demo/marketplace-ui/`
+
+The demo calls the lightweight `Health` RPC so users can verify the live Hosted
+Service without generating CKKS keys or encrypted layer payloads in the browser.
 
 ## Hosted dashboard action controls: why they can disappear
 
