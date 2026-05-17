@@ -27,7 +27,7 @@ def test_existing_layer_operation_shape_dispatches_to_layer(monkeypatch):
         captured["input_data"] = input_data
         return {"ok": True}
 
-    monkeypatch.setattr("customer_main.process_layer_request", fake_process_layer_request)
+    monkeypatch.setattr("customer_main._process_layer_request", fake_process_layer_request)
 
     payload = {
         "session_id": "s1",

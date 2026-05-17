@@ -7,12 +7,6 @@ model or require encrypted inference fixtures.
 
 from __future__ import annotations
 
-from fastapi import HTTPException
-
-from server.model.weight_manager import ModelUnavailableError, get_model_status
-from server.services.layer_service import process_layer_request
-from server.services.session_service import create_session_from_public_context
-
 SERVICE_NAME = "zk-llm-turbo"
 LAYER_OPERATIONS = {"qkv", "o_proj", "ffn_gate_up", "ffn_down", "ffn_merged"}
 
@@ -22,7 +16,25 @@ def _error(message: str, error_type: str = "InvalidInput") -> dict:
 
 
 def _health() -> dict:
-    return {"status": "ok", "service": SERVICE_NAME, **get_model_status()}
+    return {
+        "status": "ok",
+        "service": SERVICE_NAME,
+        "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+        "model_status": "not_loaded",
+        "model_error": None,
+    }
+
+
+def _create_session_from_public_context(public_context_b64: str) -> dict:
+    from server.services.session_service import create_session_from_public_context
+
+    return create_session_from_public_context(public_context_b64)
+
+
+def _process_layer_request(input_data: dict) -> dict:
+    from server.services.layer_service import process_layer_request
+
+    return process_layer_request(input_data)
 
 
 def _session(input_data: dict) -> dict:
@@ -31,19 +43,20 @@ def _session(input_data: dict) -> dict:
         return _error("public_context_b64 is required")
 
     try:
-        return create_session_from_public_context(public_context_b64)
+        return _create_session_from_public_context(public_context_b64)
     except Exception as exc:
         return _error(f"Invalid public context: {exc}", type(exc).__name__)
 
 
 def _layer(input_data: dict) -> dict:
     try:
-        return process_layer_request(input_data)
-    except ModelUnavailableError as exc:
-        return _error(f"Model is not available: {exc}", "ModelUnavailableError")
-    except HTTPException as exc:
-        return _error(str(exc.detail), "HTTPException")
+        return _process_layer_request(input_data)
     except Exception as exc:
+        if type(exc).__name__ == "ModelUnavailableError":
+            return _error(f"Model is not available: {exc}", "ModelUnavailableError")
+        detail = getattr(exc, "detail", None)
+        if detail is not None:
+            return _error(str(detail), type(exc).__name__)
         return _error(f"Inference error: {exc}", type(exc).__name__)
 
 
