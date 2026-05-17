@@ -1,8 +1,8 @@
 {
   "name": "m5_public_service_evidence",
   "status": "fail",
-  "checked_at_utc": "2026-05-17T17:14:07.206701+00:00",
-  "git_sha": "ea240b7cff4e1a4f5ce8549e0ea3ba95a7ed468c",
+  "checked_at_utc": "2026-05-17T17:22:09.788291+00:00",
+  "git_sha": "0d2299ccb649f9af26a7c58b6c9e94ba6f887a06",
   "service": {
     "organization_id": "almalgo_labs",
     "service_id": "zk_llm1",
@@ -26,19 +26,19 @@
   "checks": {
     "daemon_heartbeat": {
       "url": "https://1cf76242e956da6397b473a57f2ca4a9245568fe90b76910c1b18b4f.mainnet.haas.singularitynet.dev/heartbeat",
-      "checked_at_utc": "2026-05-17T17:14:05.438033+00:00",
+      "checked_at_utc": "2026-05-17T17:22:08.164773+00:00",
       "ok": true,
       "status_code": 200,
       "headers": {
         "Content-Length": "429",
         "Content-Type": "text/plain; charset=utf-8",
-        "Date": "Sun, 17 May 2026 17:14:06 GMT",
+        "Date": "Sun, 17 May 2026 17:22:08 GMT",
         "Vary": "Origin"
       },
-      "body": "{\"daemonID\":\"cd4f9dee12eee5a6852d14f8c243e8ab14731b69cbab7f20e7e090f175a0e036\",\"timestamp\":\"1779038045\",\"status\":\"Offline\",\"serviceheartbeat\":\"{\\\"serviceID\\\":\\\"zk_llm1\\\",\\\"status\\\":\\\"NOT_SERVING\\\"}\",\"daemonVersion\":\"v6.2.1\",\"blockchainEnabled\":true,\"blockchainNetwork\":\"main\",\"storageClientCertDetails\":{\"validFrom\":\"Valid Since: 2024-07-15 13:31:00 +0000 UTC days\",\"validTill\":\"Valid Till: 2034-07-13 13:31:00 +0000 UTC days\"}}\n",
+      "body": "{\"daemonID\":\"cd4f9dee12eee5a6852d14f8c243e8ab14731b69cbab7f20e7e090f175a0e036\",\"timestamp\":\"1779038528\",\"status\":\"Offline\",\"serviceheartbeat\":\"{\\\"serviceID\\\":\\\"zk_llm1\\\",\\\"status\\\":\\\"NOT_SERVING\\\"}\",\"daemonVersion\":\"v6.2.1\",\"blockchainEnabled\":true,\"blockchainNetwork\":\"main\",\"storageClientCertDetails\":{\"validFrom\":\"Valid Since: 2024-07-15 13:31:00 +0000 UTC days\",\"validTill\":\"Valid Till: 2034-07-13 13:31:00 +0000 UTC days\"}}\n",
       "json": {
         "daemonID": "cd4f9dee12eee5a6852d14f8c243e8ab14731b69cbab7f20e7e090f175a0e036",
-        "timestamp": "1779038045",
+        "timestamp": "1779038528",
         "status": "Offline",
         "serviceheartbeat": "{\"serviceID\":\"zk_llm1\",\"status\":\"NOT_SERVING\"}",
         "daemonVersion": "v6.2.1",
@@ -52,13 +52,13 @@
     },
     "hosted_heartbeat": {
       "url": "https://api.haas.singularitynet.dev/orchestrator/v1/services/almalgo_labs/zk_llm1/heartbeat",
-      "checked_at_utc": "2026-05-17T17:14:06.202899+00:00",
+      "checked_at_utc": "2026-05-17T17:22:08.929117+00:00",
       "ok": false,
       "status_code": 503,
       "headers": {
         "Content-Length": "44",
         "Content-Type": "application/json",
-        "Date": "Sun, 17 May 2026 17:14:06 GMT"
+        "Date": "Sun, 17 May 2026 17:22:09 GMT"
       },
       "body": "{\"error\":\"endpoint unhealthy\",\"status\":503}\n",
       "json": {
@@ -68,7 +68,7 @@
     },
     "marketplace_url": {
       "url": "https://marketplace.singularitynet.io/servicedetails/org/almalgo_labs/service/zk_llm1/tab/0",
-      "checked_at_utc": "2026-05-17T17:14:06.934702+00:00",
+      "checked_at_utc": "2026-05-17T17:22:09.529106+00:00",
       "ok": false,
       "status_code": 404,
       "headers": {
@@ -80,14 +80,14 @@
         "x-amz-error-message": "The specified key does not exist.",
         "x-amz-error-detail-Key": "servicedetails/org/almalgo_labs/service/zk_llm1/tab/0",
         "Content-Encoding": "gzip",
-        "Date": "Sun, 17 May 2026 17:14:06 GMT",
+        "Date": "Sun, 17 May 2026 17:22:08 GMT",
         "Server": "AmazonS3",
         "ETag": "W/\"1a9c509f383bbb2434948ddde78aaa20\"",
         "Vary": "Accept-Encoding",
         "X-Cache": "Error from cloudfront",
-        "Via": "1.1 0fff86d337ea968bc372d93a73e04032.cloudfront.net (CloudFront)",
+        "Via": "1.1 0fbd21cf31a1978c904761e9366788c8.cloudfront.net (CloudFront)",
         "X-Amz-Cf-Pop": "IST50-P2",
-        "X-Amz-Cf-Id": "ByWfrTk3Oy8FiT5S294TUxrvpr2edOohZxTyz7nd-M3EwQiLpPjJjQ==",
+        "X-Amz-Cf-Id": "7AFWh4iWAt0zIeucQh8W9XrUj3TeCyG9YoZmBVFANw9gy7w3Ssr7Pw==",
         "X-Frame-Options": "SAMEORIGIN"
       },
       "body": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"/><link rel=\"icon\" href=\"/favicon.ico\"/><link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/apple-touch-icon.png\"><link rel=\"icon-32\" type=\"image/png\" sizes=\"32x32\" href=\"/favicon-32x32.png\"><link rel=\"icon-16\" type=\"image/png\" sizes=\"16x16\" href=\"/favicon-16x16.png\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/><meta name=\"theme-color\" content=\"#000000\"/><meta name=\"keywords\" content=\"decentralized AI, pre-trained AI, AI solutions, artificial intelligence, SingularityNET, SNET, AI, Marketplace, pre-trained AI, AI development\"/><meta name=\"description\" content=\"Revolutionize your workflows with next-gen AI solutions! Discover & utilize pre-trained models on SingularityNET, the decentralized AI marketplace. Build, share & monetize your AI models with ease. Explore ethical AI development & join the future of AI!\"><link rel=\"manifest\" href=\"/manifest.json\"/><link rel=\"stylesheet\" href=\"https://use.fontawesome.com/releases/v5.8.1/css/all.css\" integrity=\"sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf\" crossorigin=\"anonymous\"/><link href=\"https://fonts.googleapis.com/css?family=Muli:200,200i,300,300i,400,400i,600,600i,700,800&display=swap\" rel=\"stylesheet\"><link href=\"https://fonts.googleapis.com/css?family=Space+Mono:400,700&display=swap\" rel=\"stylesheet\"><link rel=\"dns-prefetch\" href=\"//static.hotjar.com\"><link rel=\"dns-prefetch\" href=\"//www.google-analytics.com\"><link rel=\"dns-prefetch\" href=\"//fonts.googleapis.com\"><link rel=\"dns-prefetch\" href=\"//fonts.gstatic.com\"><title>SingularityNET AI Marketplace: The Decentralized Marketplace for Next-Gen AI Services</title><script defer=\"defer\" src=\"/static/js/main.3a6e0911.js\"></script><link href=\"/static/css/main.12de04eb.css\" rel=\"stylesheet\"></head><body><noscript>You need to enable JavaScript to run this app.</noscript><div id=\"root\"></div></body></html>",
