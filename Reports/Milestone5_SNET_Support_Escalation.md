@@ -85,23 +85,6 @@ Hosted service heartbeat response:
 }
 ```
 
-## Hosted Service Logs Show Successful Handler Execution
-
-The Hosted Service logs show that the serverless handler is receiving the
-profiling/health input and completing successfully:
-
-```text
-2026-05-17 17:19:18.731 [handler] [INFO] Handler started | {"input_data":{"op":"health"}}
-2026-05-17 17:19:18.821 [handler] [INFO] Run completed successfully | {"result_type":"dict","result_preview":"{'status': 'ok', 'service': 'zk-llm-turbo', 'model': 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', 'model_status': 'not_loaded', 'model_error': None}"}
-2026-05-17 16:46:30.877 [handler] [INFO] Handler started | {"input_data":{"op":"health"}}
-2026-05-17 16:46:30.966 [handler] [INFO] Run completed successfully | {"result_type":"dict","result_preview":"{'status': 'ok', 'service': 'zk-llm-turbo', 'model': 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', 'model_status': 'not_loaded', 'model_error': None}"}
-2026-05-17 16:44:05.884 [handler] [INFO] Handler started | {"input_data":{"op":"health"}}
-2026-05-17 16:44:05.978 [handler] [INFO] Run completed successfully | {"result_type":"dict","result_preview":"{'status': 'ok', 'service': 'zk-llm-turbo', 'model': 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', 'model_status': 'not_loaded', 'model_error': None}"}
-```
-
-This suggests the repository/runtime handler is healthy, while the public
-orchestrator/daemon heartbeat still reports the endpoint as unhealthy.
-
 ## Request For SNET Support
 
 Please explain why the Publisher UI reports both components as `UP` while:
@@ -109,7 +92,6 @@ Please explain why the Publisher UI reports both components as `UP` while:
 - public daemon `/heartbeat` reports `status=Offline`
 - daemon `serviceheartbeat` reports `status=NOT_SERVING`
 - hosted-service orchestrator heartbeat returns HTTP 503 `endpoint unhealthy`
-- Hosted Service logs show repeated successful `op=health` handler executions
 
 Please provide the Hosted Service serving/profiling logs and the current routing
 configuration between:
