@@ -10,12 +10,16 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential git curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /app/requirements.txt
+COPY server/requirements.txt /app/server/requirements.txt
 RUN pip install --upgrade pip \
-    && pip install -r /app/requirements.txt
+    && pip install --extra-index-url https://download.pytorch.org/whl/cpu "torch==2.4.1+cpu" \
+    && pip install -r /app/server/requirements.txt
 
 COPY . /app
 
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:${PORT:-8000}/heartbeat || exit 1
 
 CMD ["sh", "-c", "uvicorn server.server:app --host 0.0.0.0 --port ${PORT:-8000}"]

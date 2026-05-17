@@ -73,6 +73,14 @@ def test_health_does_not_require_model_load(monkeypatch):
     }
 
 
+def test_root_route_returns_liveness_payload():
+    with TestClient(server.app) as client:
+        response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "service": "zk-llm-turbo"}
+
+
 def test_layer_returns_503_when_model_unavailable(monkeypatch):
     app = FastAPI()
     app.include_router(inference_handler.router)

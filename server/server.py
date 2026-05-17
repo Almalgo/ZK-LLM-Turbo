@@ -98,6 +98,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="ZK-LLM-Turbo Server (Milestone 4)", lifespan=lifespan)
 
 
+@app.get("/")
+async def root() -> dict:
+    return {"status": "ok", "service": "zk-llm-turbo"}
+
+
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok", **get_model_status()}
