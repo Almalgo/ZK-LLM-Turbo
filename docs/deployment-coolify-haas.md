@@ -8,7 +8,7 @@ marketplace-facing daemon.
 
 | Component | Value |
 | --- | --- |
-| Coolify service URL | `https://zllm-service.example.com` |
+| Coolify service URL | `https://zkllm.almalgo.com` |
 | Coolify app port | `8000` |
 | Health endpoint | `GET /health` |
 | Readiness endpoint | `GET /ready` |
@@ -29,9 +29,12 @@ marketplace-facing daemon.
 - Runtime image: `linux/amd64` `python:3.9-slim`
 - Repository/branch: `TODO`
 - Port Exposes: `8000`
-- Domain: `https://zllm-service.example.com`
+- Domain: `https://zkllm.almalgo.com`
 - HTTPS: enabled
+- Force HTTPS redirect: enabled
+- Certificate: Let's Encrypt / ACME public certificate, not a custom self-signed certificate
 - Health check path: `/ready`
+- Health check grace/start period: `900` seconds
 - Expected health status: `200`
 - Persistent volume: mount Hugging Face cache at `/root/.cache/huggingface`
 
@@ -63,8 +66,8 @@ from source for another platform.
 After deployment, verify the service directly:
 
 ```bash
-curl -i https://zllm-service.example.com/health
-curl -i https://zllm-service.example.com/ready
+curl -i https://zkllm.almalgo.com/health
+curl -i https://zkllm.almalgo.com/ready
 ```
 
 Expected behavior:
@@ -77,13 +80,114 @@ Expected behavior:
 Run a direct client smoke test:
 
 ```bash
-ZKLLM_SERVER_BASE_URL=https://zllm-service.example.com \
+ZKLLM_SERVER_BASE_URL=https://zkllm.almalgo.com \
 python -m client.client \
   --prompt "The capital of France is" \
   --num-tokens 2 \
   --num-encrypted-layers 1 \
   --stats
 ```
+
+Or run the deployment smoke-test script against the deployed domain:
+
+```bash
+BASE_URL=https://zkllm.almalgo.com bash scripts/test_deployed_api.sh
+```
+
+The script checks:
+
+- trusted TLS certificate
+- `GET /health`
+- `GET /ready`
+- `GET /docs`
+- legacy `POST /api/infer`
+- real `POST /api/session` with a CKKS public context
+
+For reverse-proxy diagnostics only, bypass certificate verification:
+
+```bash
+BASE_URL=https://zkllm.almalgo.com INSECURE=1 bash scripts/test_deployed_api.sh
+```
+
+Run the full client generation path after the basic checks pass:
+
+```bash
+BASE_URL=https://zkllm.almalgo.com RUN_CLIENT=1 bash scripts/test_deployed_api.sh
+```
+
+The smoke-test script prefers `python3`, falls back to `python`, and supports an
+explicit override:
+
+```bash
+PYTHON_BIN=/usr/bin/python3 BASE_URL=https://zkllm.almalgo.com bash scripts/test_deployed_api.sh
+```
+
+## Current Public Failure Mapping
+
+If the public domain fails like this:
+
+```text
+subject=CN = TRAEFIK DEFAULT CERT
+issuer=CN = TRAEFIK DEFAULT CERT
+HTTP/2 503
+no available server
+```
+
+Interpretation:
+
+- `TRAEFIK DEFAULT CERT`: the domain has no valid ACME certificate. Fix the
+  Coolify domain/HTTPS certificate settings for `zkllm.almalgo.com`.
+- `HTTP 503 no available server`: the route exists, but the backend container
+  is unhealthy, stopped, exposes the wrong port, or is not attached to the
+  route.
+- `HTTP 404` on plain HTTP port 80: the HTTP router/redirect is missing, or
+  the domain is not attached to this app.
+
+Confirm DNS points at the Coolify host:
+
+```bash
+getent ahosts zkllm.almalgo.com
+```
+
+Expected:
+
+```text
+91.98.122.179
+```
+
+Confirm the certificate after fixing HTTPS:
+
+```bash
+printf '' | openssl s_client \
+  -connect zkllm.almalgo.com:443 \
+  -servername zkllm.almalgo.com \
+  -showcerts 2>/dev/null \
+  | openssl x509 -noout -subject -issuer -dates -ext subjectAltName
+```
+
+Expected:
+
+```text
+subjectAltName = DNS:zkllm.almalgo.com
+issuer = Let's Encrypt / valid public CA
+```
+
+Before debugging public TLS, validate from inside the running container:
+
+```bash
+curl -i http://127.0.0.1:8000/health
+curl -i http://127.0.0.1:8000/ready
+```
+
+Expected:
+
+```text
+HTTP 200 {"status":"ok"}
+HTTP 200 {"status":"ready", ...}
+```
+
+If the container logs show memory errors while loading TinyLlama, increase
+RAM/swap or temporarily use a smaller model to validate the deployment route.
 
 ## HAAS Daemon Redeploy
 

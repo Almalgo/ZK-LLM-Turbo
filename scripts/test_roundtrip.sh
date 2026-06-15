@@ -7,8 +7,20 @@ PROMPT="${PROMPT:-The capital of France is}"
 NUM_TOKENS="${NUM_TOKENS:-5}"
 NUM_ENCRYPTED_LAYERS="${NUM_ENCRYPTED_LAYERS:-1}"
 STARTUP_TIMEOUT_SEC="${STARTUP_TIMEOUT_SEC:-300}"
+PYTHON_BIN="${PYTHON_BIN:-}"
 
 SERVER_PID=""
+
+if [[ -z "$PYTHON_BIN" ]]; then
+  if command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="python3"
+  elif command -v python >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+  else
+    echo "[roundtrip] neither python3 nor python was found" >&2
+    exit 1
+  fi
+fi
 
 cleanup() {
   if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
@@ -19,7 +31,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "[roundtrip] Starting server on ${HOST}:${PORT}..."
-HOST="$HOST" PORT="$PORT" bash scripts/run_server.sh > /tmp/zk_llm_server.log 2>&1 &
+HOST="$HOST" PORT="$PORT" PYTHON_BIN="$PYTHON_BIN" bash scripts/run_server.sh > /tmp/zk_llm_server.log 2>&1 &
 SERVER_PID=$!
 
 echo "[roundtrip] Waiting for server to become ready..."
@@ -37,7 +49,7 @@ until curl -fsS "http://${HOST}:${PORT}/docs" >/dev/null 2>&1; do
 done
 
 echo "[roundtrip] Server is ready. Running client..."
-python -m client.client \
+"$PYTHON_BIN" -m client.client \
   --prompt "$PROMPT" \
   --num-tokens "$NUM_TOKENS" \
   --num-encrypted-layers "$NUM_ENCRYPTED_LAYERS" \

@@ -212,6 +212,16 @@ Then update `client/config/endpoints.yaml` with the ngrok HTTPS URL.
 For the Coolify runtime plus HAAS daemon redeploy path, see
 [`docs/deployment-coolify-haas.md`](docs/deployment-coolify-haas.md).
 
+To smoke-test a deployed API:
+
+```bash
+BASE_URL=https://zkllm.almalgo.com bash scripts/test_deployed_api.sh
+```
+
+Set `INSECURE=1` only for temporary proxy diagnostics when the domain is using
+a self-signed certificate. Set `RUN_CLIENT=1` to run the full encrypted client
+generation test after `/health`, `/ready`, and `/api/session` pass.
+
 ---
 
 ## Running Tests
