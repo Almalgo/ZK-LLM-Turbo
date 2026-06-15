@@ -207,6 +207,11 @@ ngrok http 8000
 
 Then update `client/config/endpoints.yaml` with the ngrok HTTPS URL.
 
+### Production Deployment Notes
+
+For the Coolify runtime plus HAAS daemon redeploy path, see
+[`docs/deployment-coolify-haas.md`](docs/deployment-coolify-haas.md).
+
 ---
 
 ## Running Tests

@@ -1,3 +1,5 @@
+import os
+
 import torch
 import numpy as np
 from transformers import AutoModelForCausalLM
@@ -7,7 +9,8 @@ logger = get_logger("server.weights")
 
 _model = None
 _layer_weight_cache: dict[int, dict] = {}
-MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+DEFAULT_MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+MODEL_NAME = os.getenv("ZKLLM_MODEL_NAME", DEFAULT_MODEL_NAME)
 
 
 def load_model():

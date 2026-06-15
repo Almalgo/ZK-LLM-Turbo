@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import sys
 import time
 import uuid
@@ -22,7 +23,8 @@ def get_logger(name: str):
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(JSONFormatter())
         logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
+        log_level = os.getenv("ZKLLM_LOG_LEVEL", "INFO").upper()
+        logger.setLevel(getattr(logging, log_level, logging.INFO))
     return logger
 
 def timed_execution(logger, label):
