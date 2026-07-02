@@ -31,6 +31,9 @@ runpod_handler.py
 Dockerfile
 ```
 
+This repo also includes `requirements.haas.txt`, which is used by the root
+Dockerfile to keep the HaaS proxy image small.
+
 The root `Dockerfile` starts:
 
 ```text
@@ -168,15 +171,20 @@ profiling. If this fails, the hosted service status moves to `ERROR`.
 
 ## Root dependencies
 
-Keep these platform dependencies in `requirements.txt`:
+The root HaaS Dockerfile installs `requirements.haas.txt` to keep Publisher
+builds small and avoid downloading TinyLlama/TenSEAL/PyTorch dependencies in
+the proxy image.
+
+Keep these platform/proxy dependencies in `requirements.haas.txt`:
 
 ```text
 runpod==1.7.12
 sentry-sdk==2.46.0
+requests>=2.32,<3
 ```
 
-The rest of the file contains the lightweight proxy dependencies and optional
-local FastAPI/backend dependencies used by development and rollback paths.
+Keep `requirements.txt` for local/backend development compatibility and any
+Publisher checks that expect a root requirements file to exist.
 
 ## Publisher setup
 

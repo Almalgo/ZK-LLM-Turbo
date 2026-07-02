@@ -33,6 +33,9 @@ runpod_handler.py
 Dockerfile
 ```
 
+This repo also includes `requirements.haas.txt`; the root Dockerfile uses it to
+avoid installing backend-only ML dependencies in the lightweight HaaS proxy.
+
 Detailed operator instructions are in:
 
 ```text
@@ -60,6 +63,9 @@ python -u runpod_handler.py
 ```
 
 `Dockerfile.fastapi` remains available for optional local/Coolify-style HTTP testing.
+The root HaaS `Dockerfile` installs `requirements.haas.txt`, not the heavy
+backend `requirements.txt`, so Publisher builds do not download PyTorch,
+Transformers, or TenSEAL for the lightweight proxy.
 
 `runpod_handler.py` imports `customer_main.py` and calls:
 
