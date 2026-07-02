@@ -61,6 +61,7 @@ TinyLlama or perform encrypted layer inference locally.
 ```text
 op=health
 op=heartbeat
+op=proxy_health
 op=session
 op=layer
 ```
@@ -75,7 +76,7 @@ ffn_down
 ffn_merged
 ```
 
-Health and profiling are intentionally lightweight:
+Health and profiling are intentionally lightweight and intentionally minimal:
 
 ```json
 {
@@ -85,6 +86,10 @@ Health and profiling are intentionally lightweight:
 ```
 
 This avoids loading TinyLlama during the Publisher profiling step.
+
+Do not add extra fields to `health` or `heartbeat`. The Publisher
+orchestrator/daemon heartbeat path appears to parse this response strictly.
+Use `proxy_health` for backend diagnostics.
 
 ## Proxy environment
 
@@ -113,12 +118,12 @@ Behavior:
 - `ZKLLM_BACKEND_BASE_URL` overrides the built-in backend URL.
 - If `ZKLLM_BACKEND_AUTH_TOKEN` is set, the proxy forwards it as a bearer token.
 - Health and profiling stay `SERVING` by default even if the backend is down.
-- Backend reachability diagnostics are included in the health response.
+- Backend reachability diagnostics are included in the `proxy_health` response.
 - If HaaS cannot provide `ZKLLM_BACKEND_AUTH_TOKEN`, the self-hosted backend must
   allow unauthenticated calls from the HAAS proxy path or use another network
   control outside this app.
 
-Example health response:
+Example `proxy_health` response:
 
 ```json
 {

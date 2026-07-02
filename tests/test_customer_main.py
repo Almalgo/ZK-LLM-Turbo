@@ -15,11 +15,29 @@ class FakeResponse:
         return self._json_data
 
 
-def test_health_without_backend_configured_stays_serving(monkeypatch):
+def test_health_returns_minimal_haas_serving_status(monkeypatch):
     monkeypatch.delenv("ZKLLM_BACKEND_BASE_URL", raising=False)
     monkeypatch.setattr("customer_main.DEFAULT_BACKEND_BASE_URL", "")
 
     result = run({"op": "health"})
+
+    assert result == {"serviceID": "zk_llm1", "status": "SERVING"}
+
+
+def test_heartbeat_alias_returns_proxy_health(monkeypatch):
+    monkeypatch.delenv("ZKLLM_BACKEND_BASE_URL", raising=False)
+    monkeypatch.setattr("customer_main.DEFAULT_BACKEND_BASE_URL", "")
+
+    result = run({"op": "heartbeat"})
+
+    assert result == {"serviceID": "zk_llm1", "status": "SERVING"}
+
+
+def test_proxy_health_without_backend_configured_stays_serving(monkeypatch):
+    monkeypatch.delenv("ZKLLM_BACKEND_BASE_URL", raising=False)
+    monkeypatch.setattr("customer_main.DEFAULT_BACKEND_BASE_URL", "")
+
+    result = run({"op": "proxy_health"})
 
     assert result["serviceID"] == "zk_llm1"
     assert result["status"] == "SERVING"
@@ -33,17 +51,6 @@ def test_health_without_backend_configured_stays_serving(monkeypatch):
     }
 
 
-def test_heartbeat_alias_returns_proxy_health(monkeypatch):
-    monkeypatch.delenv("ZKLLM_BACKEND_BASE_URL", raising=False)
-    monkeypatch.setattr("customer_main.DEFAULT_BACKEND_BASE_URL", "")
-
-    result = run({"op": "heartbeat"})
-
-    assert result["serviceID"] == "zk_llm1"
-    assert result["status"] == "SERVING"
-    assert result["mode"] == "proxy"
-
-
 def test_health_with_reachable_backend(monkeypatch):
     monkeypatch.setenv("ZKLLM_BACKEND_BASE_URL", "https://backend.example")
 
@@ -55,7 +62,7 @@ def test_health_with_reachable_backend(monkeypatch):
 
     monkeypatch.setattr("customer_main.requests.get", fake_get)
 
-    result = run({"op": "health"})
+    result = run({"op": "proxy_health"})
 
     assert result["status"] == "SERVING"
     assert result["backend"]["configured"] is True
@@ -73,7 +80,7 @@ def test_health_with_backend_timeout_stays_serving(monkeypatch):
 
     monkeypatch.setattr("customer_main.requests.get", fake_get)
 
-    result = run({"op": "health"})
+    result = run({"op": "proxy_health"})
 
     assert result["status"] == "SERVING"
     assert result["backend"]["configured"] is True
@@ -90,7 +97,7 @@ def test_health_can_fail_closed_when_configured(monkeypatch):
 
     monkeypatch.setattr("customer_main.requests.get", fake_get)
 
-    result = run({"op": "health"})
+    result = run({"op": "proxy_health"})
 
     assert result["status"] == "UNAVAILABLE"
     assert result["backend"]["reachable"] is False

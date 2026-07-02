@@ -87,7 +87,8 @@ This validates the handler without loading TinyLlama or requiring encrypted infe
 
 Supported HaaS proxy operations:
 
-- `health`: returns local serving status plus backend diagnostics without model loading.
+- `health`: returns minimal local serving status without model loading.
+- `proxy_health`: returns backend diagnostics without model loading.
 - `session`: forwards the existing `POST /api/session` payload to the configured backend.
 - `layer`: forwards the existing `POST /api/layer` payload to the configured backend.
 

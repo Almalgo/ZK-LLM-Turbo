@@ -137,6 +137,13 @@ def _probe_backend_health() -> dict:
 
 
 def _health() -> dict:
+    return {
+        "serviceID": SERVICE_ID,
+        "status": "SERVING",
+    }
+
+
+def _proxy_health() -> dict:
     backend = _probe_backend_health()
     status = "SERVING"
     if backend["configured"] and not backend["reachable"] and not _fail_open_health():
@@ -173,6 +180,8 @@ def run(input_data):
 
     if op in {"health", "heartbeat"}:
         return _health()
+    if op == "proxy_health":
+        return _proxy_health()
     if op == "session":
         return _proxy_session(input_data)
     if op == "layer":
