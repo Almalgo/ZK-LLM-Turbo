@@ -24,9 +24,8 @@ Coolify service URL: https://zkllm.almalgo.com
 
 Use `Dockerfile.fastapi` for the clearest Coolify deployment path.
 
-The root `Dockerfile` is still valid for SNET Full-Stack HAAS by default. It
-can also run FastAPI when `SERVICE_MODE=fastapi` or `PORT` is set, but
-`Dockerfile.fastapi` avoids ambiguity for Coolify.
+The root `Dockerfile` is reserved for SNET Full-Stack HAAS and starts the
+RunPod handler. Use `Dockerfile.fastapi` for Coolify.
 
 The Publisher proto remains:
 
@@ -55,13 +54,6 @@ HTTPS: enabled
 Healthcheck path: /heartbeat
 WebSocket support: enabled if available
 Restart policy: enabled
-```
-
-If you intentionally use the root `Dockerfile` in Coolify, set:
-
-```bash
-SERVICE_MODE=fastapi
-PORT=8000
 ```
 
 HTTP/2 or gRPC-specific proxy support is not required for this deployment,

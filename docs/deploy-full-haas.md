@@ -1,7 +1,8 @@
 # SingularityNET Full-Stack HaaS Deployment
 
-This is the preferred production deployment mode for ZK-LLM-Turbo when both the
-daemon and the API/service runtime should be hosted by SingularityNET Publisher.
+This is the preferred production deployment mode for ZK-LLM-Turbo when
+SingularityNET Publisher should host the daemon and HaaS service object while
+the heavy TinyLlama/TenSEAL runtime remains on self-hosted infrastructure.
 
 ## Architecture
 
@@ -14,8 +15,10 @@ Publisher HAAS daemon
         v
 Publisher Full-Stack HAAS RunPod service
         |
+        | customer_main.run(input_data)
+        | forwards HTTP requests
         v
-customer_main.run(input_data)
+Self-hosted ZK-LLM FastAPI backend
 ```
 
 The repository root is prepared for the Publisher Full-Stack HaaS contract:
@@ -44,6 +47,9 @@ This matches the current HaaS repository contract documented by
 SingularityNET: Full-Stack mode builds a Docker container from the GitHub repo,
 deploys it as a serverless endpoint, and passes `profile.json` input directly
 to `customer_main.run`.
+
+The HaaS service is intentionally a lightweight proxy. It does not load
+TinyLlama or perform encrypted layer inference locally.
 
 ## Service operations
 
@@ -77,6 +83,61 @@ Health and profiling are intentionally lightweight:
 
 This avoids loading TinyLlama during the Publisher profiling step.
 
+## Proxy environment
+
+Configure these environment variables in the Publisher Full-Stack HaaS service:
+
+```env
+ZKLLM_BACKEND_BASE_URL=https://zkllm.almalgo.com
+ZKLLM_BACKEND_AUTH_TOKEN=
+ZKLLM_BACKEND_TIMEOUT_SECONDS=900
+ZKLLM_BACKEND_HEALTH_TIMEOUT_SECONDS=10
+ZKLLM_PROXY_FAIL_OPEN_HEALTH=true
+```
+
+Behavior:
+
+- `ZKLLM_BACKEND_BASE_URL` is required for `session` and `layer` operations.
+- If `ZKLLM_BACKEND_AUTH_TOKEN` is set, the proxy forwards it as a bearer token.
+- Health and profiling stay `SERVING` by default even if the backend is down.
+- Backend reachability diagnostics are included in the health response.
+
+Example health response:
+
+```json
+{
+  "serviceID": "zk_llm1",
+  "service": "zk-llm-turbo",
+  "status": "SERVING",
+  "mode": "proxy",
+  "backend": {
+    "configured": true,
+    "reachable": true,
+    "base_url": "https://zkllm.almalgo.com",
+    "status_code": 200,
+    "error": null
+  }
+}
+```
+
+## Backend endpoint contract
+
+The self-hosted backend must expose:
+
+```text
+GET  /health
+POST /health
+POST /api/session
+POST /api/layer
+```
+
+The HaaS proxy forwards:
+
+```text
+session -> POST /api/session
+layer   -> POST /api/layer
+```
+
 ## Profile payload
 
 `profile.json` should stay lightweight:
@@ -101,8 +162,8 @@ runpod==1.7.12
 sentry-sdk==2.46.0
 ```
 
-The rest of the file contains the service runtime dependencies required by the
-session and encrypted layer handlers.
+The rest of the file contains the lightweight proxy dependencies and optional
+local FastAPI/backend dependencies used by development and rollback paths.
 
 ## Publisher setup
 
@@ -120,8 +181,9 @@ Use Full-Stack HaaS in Publisher:
 VALIDATING -> REGISTERING -> PUSHING_NEW_VERSION -> BUILDING -> DEPLOYING -> PROFILING -> UP
 ```
 
-For this mode, do not point the daemon to a Coolify URL. Publisher manages the
-daemon and the service runtime.
+For this mode, do not configure the daemon-only service endpoint directly to
+Coolify. Publisher manages the daemon and calls the Publisher-hosted HaaS proxy,
+which then forwards to the self-hosted backend.
 
 ## Local verification
 
@@ -137,13 +199,23 @@ PY
 Expected output:
 
 ```text
-{'serviceID': 'zk_llm1', 'status': 'SERVING'}
+{'serviceID': 'zk_llm1', 'service': 'zk-llm-turbo', 'status': 'SERVING', 'mode': 'proxy', ...}
 ```
 
 Run focused tests:
 
 ```bash
 python3 -m pytest -q tests/test_customer_main.py
+```
+
+Run proxy health against a real backend:
+
+```bash
+ZKLLM_BACKEND_BASE_URL=https://zkllm.almalgo.com \
+python3 - <<'PY'
+from customer_main import run
+print(run({"op": "health"}))
+PY
 ```
 
 Build the root HaaS image locally:
@@ -158,6 +230,5 @@ The image should start `runpod_handler.py`.
 
 - `Dockerfile.fastapi` remains available only for local/Coolify-style HTTP API
   testing.
-- `docker-entrypoint.sh` is not used by the root HaaS image.
 - Avoid loading model weights in `profile.json`; use the health operation for
   Publisher profiling.

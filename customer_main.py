@@ -1,57 +1,163 @@
-"""SingularityNET Full-Stack HaaS entrypoint.
+"""SingularityNET Full-Stack HaaS lightweight proxy entrypoint.
 
-The HaaS RunPod wrapper imports this module and calls run(input_data).
-Keep the health path lightweight so deployment profiling does not load the
-model or require encrypted inference fixtures.
+The HaaS RunPod wrapper imports this module and calls run(input_data). Keep the
+health path lightweight so Publisher profiling does not load TinyLlama or HE
+runtime dependencies. Session and layer operations are forwarded to the
+self-hosted FastAPI backend that performs the heavy work.
 """
 
 from __future__ import annotations
 
+import os
+from urllib.parse import urljoin
+
+import requests
+
+SERVICE_ID = "zk_llm1"
 SERVICE_NAME = "zk-llm-turbo"
 LAYER_OPERATIONS = {"qkv", "o_proj", "ffn_gate_up", "ffn_down", "ffn_merged"}
 
 
-def _error(message: str, error_type: str = "InvalidInput") -> dict:
-    return {"error": message, "error_type": error_type}
+def _error(message: str, error_type: str = "InvalidInput", **extra) -> dict:
+    response = {"error": message, "error_type": error_type}
+    response.update(extra)
+    return response
+
+
+def _backend_base_url() -> str | None:
+    value = os.getenv("ZKLLM_BACKEND_BASE_URL", "").strip()
+    return value.rstrip("/") if value else None
+
+
+def _backend_headers() -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    token = os.getenv("ZKLLM_BACKEND_AUTH_TOKEN", "").strip()
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+def _float_env(name: str, default: float) -> float:
+    value = os.getenv(name, "").strip()
+    if not value:
+        return default
+    try:
+        parsed = float(value)
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default
+
+
+def _timeout_seconds() -> float:
+    return _float_env("ZKLLM_BACKEND_TIMEOUT_SECONDS", 900.0)
+
+
+def _health_timeout_seconds() -> float:
+    return _float_env("ZKLLM_BACKEND_HEALTH_TIMEOUT_SECONDS", 10.0)
+
+
+def _fail_open_health() -> bool:
+    return os.getenv("ZKLLM_PROXY_FAIL_OPEN_HEALTH", "true").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
+def _backend_url(path: str) -> str | None:
+    base_url = _backend_base_url()
+    if base_url is None:
+        return None
+    return urljoin(f"{base_url}/", path.lstrip("/"))
+
+
+def _backend_not_configured() -> dict:
+    return _error(
+        "ZKLLM_BACKEND_BASE_URL is required for proxy operation",
+        "BackendNotConfigured",
+    )
+
+
+def _post_backend(path: str, payload: dict, timeout: float) -> dict:
+    url = _backend_url(path)
+    if url is None:
+        return _backend_not_configured()
+
+    try:
+        response = requests.post(url, json=payload, headers=_backend_headers(), timeout=timeout)
+    except requests.RequestException as exc:
+        return _error(f"Backend request failed: {exc}", "BackendRequestError")
+
+    if response.status_code < 200 or response.status_code >= 300:
+        return _error(
+            f"Backend returned HTTP {response.status_code}",
+            "BackendHTTPError",
+            status_code=response.status_code,
+            backend_body=response.text,
+        )
+
+    try:
+        return response.json()
+    except ValueError:
+        return _error("Backend returned non-JSON response", "BackendResponseError")
+
+
+def _probe_backend_health() -> dict:
+    base_url = _backend_base_url()
+    if base_url is None:
+        return {
+            "configured": False,
+            "reachable": False,
+            "base_url": None,
+            "status_code": None,
+            "error": None,
+        }
+
+    url = _backend_url("/health")
+    try:
+        response = requests.get(url, headers=_backend_headers(), timeout=_health_timeout_seconds())
+    except requests.RequestException as exc:
+        return {
+            "configured": True,
+            "reachable": False,
+            "base_url": base_url,
+            "status_code": None,
+            "error": str(exc),
+        }
+
+    return {
+        "configured": True,
+        "reachable": 200 <= response.status_code < 300,
+        "base_url": base_url,
+        "status_code": response.status_code,
+        "error": None if 200 <= response.status_code < 300 else response.text,
+    }
 
 
 def _health() -> dict:
-    return {"serviceID": "zk_llm1", "status": "SERVING"}
+    backend = _probe_backend_health()
+    status = "SERVING"
+    if backend["configured"] and not backend["reachable"] and not _fail_open_health():
+        status = "UNAVAILABLE"
+    return {
+        "serviceID": SERVICE_ID,
+        "service": SERVICE_NAME,
+        "status": status,
+        "mode": "proxy",
+        "backend": backend,
+    }
 
 
-def _create_session_from_public_context(public_context_b64: str) -> dict:
-    from server.services.session_service import create_session_from_public_context
-
-    return create_session_from_public_context(public_context_b64)
-
-
-def _process_layer_request(input_data: dict) -> dict:
-    from server.services.layer_service import process_layer_request
-
-    return process_layer_request(input_data)
-
-
-def _session(input_data: dict) -> dict:
+def _proxy_session(input_data: dict) -> dict:
     public_context_b64 = input_data.get("public_context_b64")
     if not isinstance(public_context_b64, str) or not public_context_b64:
         return _error("public_context_b64 is required")
-
-    try:
-        return _create_session_from_public_context(public_context_b64)
-    except Exception as exc:
-        return _error(f"Invalid public context: {exc}", type(exc).__name__)
+    return _post_backend("/api/session", input_data, _timeout_seconds())
 
 
-def _layer(input_data: dict) -> dict:
-    try:
-        return _process_layer_request(input_data)
-    except Exception as exc:
-        if type(exc).__name__ == "ModelUnavailableError":
-            return _error(f"Model is not available: {exc}", "ModelUnavailableError")
-        detail = getattr(exc, "detail", None)
-        if detail is not None:
-            return _error(str(detail), type(exc).__name__)
-        return _error(f"Inference error: {exc}", type(exc).__name__)
+def _proxy_layer(input_data: dict) -> dict:
+    return _post_backend("/api/layer", input_data, _timeout_seconds())
 
 
 def run(input_data):
@@ -67,9 +173,9 @@ def run(input_data):
     if op in {"health", "heartbeat"}:
         return _health()
     if op == "session":
-        return _session(input_data)
+        return _proxy_session(input_data)
     if op == "layer":
-        return _layer(input_data)
+        return _proxy_layer(input_data)
 
     if op is None:
         return _error("op is required")

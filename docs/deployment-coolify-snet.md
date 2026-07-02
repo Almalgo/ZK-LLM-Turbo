@@ -1,8 +1,8 @@
 # Deployment: Coolify API and SNET Publisher
 
 This repo supports two deployment targets from the same codebase. The preferred
-production path is now Full-Stack HaaS, where Publisher hosts both the daemon
-and service runtime. See `docs/deploy-full-haas.md`.
+production path is now Full-Stack HaaS, where Publisher hosts the daemon and a
+lightweight proxy service. See `docs/deploy-full-haas.md`.
 
 1. SingularityNET Publisher Full-Stack HaaS.
 2. Optional Coolify-hosted FastAPI service for local/rollback testing.
@@ -67,7 +67,9 @@ For Publisher metadata, upload/use:
   - `Session` -> `POST /api/session`
   - `Layer` -> `POST /api/layer`
 
-The FastAPI service implements matching HTTP routes so Publisher/daemon passthrough checks can probe health before encrypted inference fixtures are available.
+The Publisher-hosted HaaS service forwards session/layer requests to the
+self-hosted FastAPI backend. The FastAPI backend implements matching HTTP routes
+for direct preflight and optional rollback testing.
 
 ## Local verification
 
@@ -76,7 +78,7 @@ python -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt pytest requests-mock
 pytest -q tests/test_customer_main.py server/tests/test_api_endpoint.py
-SERVICE_MODE=fastapi PORT=8000 uvicorn server.server:app --host 127.0.0.1 --port 8000
+PORT=8000 uvicorn server.server:app --host 127.0.0.1 --port 8000
 ```
 
 In another shell:

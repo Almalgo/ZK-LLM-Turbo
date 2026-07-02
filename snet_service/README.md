@@ -18,7 +18,8 @@ The legacy `POST /api/infer` endpoint is backward-compat only and not the primar
 The preferred mainnet deployment is SingularityNET Publisher Full-Stack HaaS:
 
 - Publisher runs the daemon.
-- Publisher builds and runs the service runtime from the repository root.
+- Publisher builds and runs a lightweight proxy service from the repository root.
+- The proxy forwards session/layer work to the self-hosted FastAPI backend.
 - The root `Dockerfile` starts `python -u runpod_handler.py`.
 - `runpod_handler.py` calls `customer_main.run(input_data)`.
 
@@ -78,11 +79,21 @@ The lightweight deployment profiling request is configured in `profile.json`:
 
 This validates the handler without loading TinyLlama or requiring encrypted inference fixtures.
 
-Supported HaaS handler operations:
+Supported HaaS proxy operations:
 
-- `health`: returns service/model status without model loading.
-- `session`: mirrors the existing `POST /api/session` payload.
-- `layer`: mirrors the existing `POST /api/layer` payload.
+- `health`: returns local serving status plus backend diagnostics without model loading.
+- `session`: forwards the existing `POST /api/session` payload to the configured backend.
+- `layer`: forwards the existing `POST /api/layer` payload to the configured backend.
+
+Required proxy environment:
+
+```env
+ZKLLM_BACKEND_BASE_URL=https://zkllm.almalgo.com
+ZKLLM_BACKEND_AUTH_TOKEN=
+ZKLLM_BACKEND_TIMEOUT_SECONDS=900
+ZKLLM_BACKEND_HEALTH_TIMEOUT_SECONDS=10
+ZKLLM_PROXY_FAIL_OPEN_HEALTH=true
+```
 
 SNET Publisher watches the GitHub repository default branch. Push HaaS deployment changes to the default branch, or change the repository default branch before expecting Publisher to redeploy.
 
