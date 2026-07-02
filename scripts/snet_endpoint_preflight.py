@@ -53,16 +53,26 @@ def _validate_base_url(name: str, base_url: str, *, allow_http: bool) -> list[Ch
     return results
 
 
-def _probe(url: str, timeout: float) -> CheckResult:
+def _probe(
+    url: str,
+    timeout: float,
+    *,
+    method: str = "GET",
+    json_body: dict | None = None,
+) -> CheckResult:
     try:
-        response = requests.get(url, timeout=timeout)
+        response = requests.request(method, url, json=json_body, timeout=timeout)
     except requests.RequestException as exc:
-        return CheckResult(url, False, str(exc))
+        return CheckResult(f"{method} {url}", False, str(exc))
 
     if response.status_code != 200:
-        return CheckResult(url, False, f"expected HTTP 200, got {response.status_code}")
+        return CheckResult(
+            f"{method} {url}",
+            False,
+            f"expected HTTP 200, got {response.status_code}",
+        )
 
-    return CheckResult(url, True, "HTTP 200")
+    return CheckResult(f"{method} {url}", True, "HTTP 200")
 
 
 def _print_results(results: list[CheckResult]) -> bool:
@@ -93,6 +103,14 @@ def main() -> int:
     results.append(_probe(f"{public_base_url}/", args.timeout))
     results.append(_probe(f"{public_base_url}/heartbeat", args.timeout))
     results.append(_probe(f"{public_base_url}/health", args.timeout))
+    results.append(
+        _probe(
+            f"{public_base_url}/health",
+            args.timeout,
+            method="POST",
+            json_body={"op": "health"},
+        )
+    )
 
     if args.daemon_base_url:
         daemon_base_url = args.daemon_base_url.rstrip("/")

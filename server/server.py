@@ -98,6 +98,16 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="ZK-LLM-Turbo Server (Milestone 4)", lifespan=lifespan)
 
 
+def _health_payload() -> dict:
+    """Return a lightweight health payload compatible with Coolify and SNET.
+
+    This must not trigger TinyLlama loading: Coolify, SNET daemon heartbeats, and
+    Publisher HTTP RPC checks need a cheap liveness/readiness response before any
+    encrypted inference fixture is available.
+    """
+    return {"status": "ok", "service": "zk-llm-turbo", **get_model_status()}
+
+
 @app.get("/")
 async def root() -> dict:
     return {"status": "ok", "service": "zk-llm-turbo"}
@@ -105,12 +115,24 @@ async def root() -> dict:
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", **get_model_status()}
+    return _health_payload()
+
+
+@app.post("/health")
+async def health_rpc() -> dict:
+    """SNET Publisher HTTP proto maps Health RPC to POST /health."""
+    return _health_payload()
 
 
 @app.get("/heartbeat")
 async def heartbeat() -> dict:
     return {"status": "ok"}
+
+
+@app.post("/heartbeat")
+async def heartbeat_rpc() -> dict:
+    """Accept POST heartbeats for daemon/proxy implementations that use RPC style."""
+    return {"status": "ok", "service": "zk-llm-turbo"}
 
 app.include_router(inference_router)
 app.include_router(session_router)

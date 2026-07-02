@@ -1,0 +1,16 @@
+services:
+  zk-llm-turbo-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.fastapi
+    environment:
+      PORT: "8000"
+      ZKLLM_SERVER_MODEL_DTYPE: "float32"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

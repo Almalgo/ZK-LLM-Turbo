@@ -27,11 +27,16 @@ runpod_handler.py
 Dockerfile
 ```
 
-For Full-Stack HaaS, the root `Dockerfile` is the SNET/RunPod handler image, not the FastAPI server image. The root handler starts:
+For Full-Stack HaaS, the root `Dockerfile` keeps the required SNET/RunPod handler path available. The image entrypoint chooses deployment mode as follows:
 
 ```text
-python -u runpod_handler.py
+SERVICE_MODE=runpod|haas|snet -> python -u runpod_handler.py
+SERVICE_MODE=fastapi|http|coolify -> uvicorn server.server:app
+PORT set with SERVICE_MODE unset -> uvicorn server.server:app
+no PORT and SERVICE_MODE unset -> python -u runpod_handler.py
 ```
+
+This keeps SNET Publisher compatible by default while allowing Coolify to run the same root image as an HTTP API when it injects `PORT` or when `SERVICE_MODE=fastapi` is set. For an explicit Coolify deployment, `Dockerfile.fastapi` and `docker-compose.yml` are also provided.
 
 `runpod_handler.py` imports `customer_main.py` and calls:
 
@@ -122,6 +127,7 @@ Required methods and mapping:
 - `Health` -> `POST /health`
   - request: `op` (set to `health` for Marketplace demo calls)
   - response: `status`, `service`, `model`, `model_status`, optional `model_error`
+  - note: the FastAPI app also supports `GET /health` for Coolify/internal probes
 - `Session` -> `POST /api/session`
   - request: `public_context_b64`
   - response: `session_id`

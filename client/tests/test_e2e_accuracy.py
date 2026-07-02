@@ -61,6 +61,7 @@ class TestEncryptedAccuracy:
         expected = x * (1.0 / (1.0 + np.exp(-x)))
         np.testing.assert_allclose(result, expected, atol=1e-6)
 
+    @pytest.mark.slow
     def test_encrypted_matmul_2048_dim(self):
         """Test HE matmul at full hidden dimension (2048 → 256)."""
         dim_in, dim_out = 2048, 256

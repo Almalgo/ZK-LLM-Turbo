@@ -68,6 +68,31 @@ def test_health_does_not_require_model_load(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
+        "service": "zk-llm-turbo",
+        "model": "test-model",
+        "model_status": "not_loaded",
+        "model_error": None,
+    }
+
+
+def test_post_health_matches_snet_http_rpc_mapping(monkeypatch):
+    monkeypatch.setattr(
+        server,
+        "get_model_status",
+        lambda: {
+            "model": "test-model",
+            "model_status": "not_loaded",
+            "model_error": None,
+        },
+    )
+
+    with TestClient(server.app) as client:
+        response = client.post("/health", json={"op": "health"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "service": "zk-llm-turbo",
         "model": "test-model",
         "model_status": "not_loaded",
         "model_error": None,

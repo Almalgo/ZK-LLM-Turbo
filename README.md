@@ -113,8 +113,8 @@ source split-inference-env/bin/activate
 
 ### Install dependencies
 
-```
-
+```bash
+pip install -r requirements.txt
 ```
 
 ---
@@ -130,10 +130,14 @@ cd /path/to/ZK-LLM-Turbo
 uvicorn server.server:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The server loads TinyLlama 1.1B at startup and exposes two endpoints:
+The server starts lightweight health/session services first and lazy-loads TinyLlama weights only when layer inference needs them. It exposes these key endpoints:
 
 | Endpoint | Purpose |
 |---|---|
+| `GET /` | Liveness payload for platform routing checks |
+| `GET /heartbeat` | Lightweight healthcheck for Coolify/container probes |
+| `GET /health` | Model-aware health payload without forcing model load |
+| `POST /health` | SNET HTTP RPC health mapping |
 | `POST /api/session` | Establish encrypted session (receives public CKKS context) |
 | `POST /api/layer` | Perform homomorphic operations on encrypted vectors |
 
@@ -198,6 +202,15 @@ pytest -q              # all quick tests
 pytest -m slow         # slow tests (downloads model)
 pytest -v              # verbose output
 ```
+
+---
+
+## Deployment
+
+For Coolify and SNET Publisher deployment instructions, see:
+
+- `docs/deployment-coolify-snet.md`
+- `snet_service/README.md`
 
 ---
 
