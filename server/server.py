@@ -19,6 +19,9 @@ logger = get_logger("server")
 
 load_dotenv("server/config/credentials.env")
 
+SERVICE_NAME = "zk-llm-turbo"
+SNET_SERVICE_ID = "zk_llm1"
+
 
 def _check_hexl():
     """Log whether Intel HEXL acceleration is actually available to TenSEAL."""
@@ -98,19 +101,25 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="ZK-LLM-Turbo Server (Milestone 4)", lifespan=lifespan)
 
 
-def _health_payload() -> dict:
-    """Return a lightweight health payload compatible with Coolify and SNET.
+def _liveness_payload() -> dict:
+    return {
+        "status": "ok",
+        "service": SERVICE_NAME,
+        "serviceID": SNET_SERVICE_ID,
+    }
 
-    This must not trigger TinyLlama loading: Coolify, SNET daemon heartbeats, and
-    Publisher HTTP RPC checks need a cheap liveness/readiness response before any
-    encrypted inference fixture is available.
-    """
-    return {"status": "ok", "service": "zk-llm-turbo", **get_model_status()}
+
+def _health_payload() -> dict:
+    """Return lightweight health without triggering lazy model loading."""
+    return {
+        **_liveness_payload(),
+        **get_model_status(),
+    }
 
 
 @app.get("/")
 async def root() -> dict:
-    return {"status": "ok", "service": "zk-llm-turbo"}
+    return {"status": "ok", "service": SERVICE_NAME}
 
 
 @app.get("/health")
@@ -126,13 +135,13 @@ async def health_rpc() -> dict:
 
 @app.get("/heartbeat")
 async def heartbeat() -> dict:
-    return {"status": "ok"}
+    return _liveness_payload()
 
 
 @app.post("/heartbeat")
 async def heartbeat_rpc() -> dict:
     """Accept POST heartbeats for daemon/proxy implementations that use RPC style."""
-    return {"status": "ok", "service": "zk-llm-turbo"}
+    return _liveness_payload()
 
 app.include_router(inference_router)
 app.include_router(session_router)

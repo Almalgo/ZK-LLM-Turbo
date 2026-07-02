@@ -5,6 +5,7 @@ import msgpack
 
 from server import server
 from server.handlers import inference_handler
+from server.model import weight_manager
 from server.services import layer_service
 from server.model.weight_manager import ModelUnavailableError
 
@@ -51,7 +52,9 @@ def test_layer_websocket_route_processes_binary_payload(monkeypatch):
     assert isinstance(captured["cid"], str)
 
 
-def test_health_does_not_require_model_load(monkeypatch):
+def test_get_health_returns_snet_payload_without_model_load(monkeypatch):
+    called = False
+
     monkeypatch.setattr(
         server,
         "get_model_status",
@@ -62,6 +65,14 @@ def test_health_does_not_require_model_load(monkeypatch):
         },
     )
 
+    def fail_load_model():
+        nonlocal called
+        called = True
+        raise AssertionError("health must not load the model")
+
+    monkeypatch.setattr(server, "load_model", fail_load_model, raising=False)
+    monkeypatch.setattr(weight_manager, "load_model", fail_load_model)
+
     with TestClient(server.app) as client:
         response = client.get("/health")
 
@@ -69,13 +80,15 @@ def test_health_does_not_require_model_load(monkeypatch):
     assert response.json() == {
         "status": "ok",
         "service": "zk-llm-turbo",
+        "serviceID": "zk_llm1",
         "model": "test-model",
         "model_status": "not_loaded",
         "model_error": None,
     }
+    assert called is False
 
 
-def test_post_health_matches_snet_http_rpc_mapping(monkeypatch):
+def test_post_health_matches_publisher_proto_mapping(monkeypatch):
     monkeypatch.setattr(
         server,
         "get_model_status",
@@ -93,6 +106,7 @@ def test_post_health_matches_snet_http_rpc_mapping(monkeypatch):
     assert response.json() == {
         "status": "ok",
         "service": "zk-llm-turbo",
+        "serviceID": "zk_llm1",
         "model": "test-model",
         "model_status": "not_loaded",
         "model_error": None,
@@ -105,6 +119,30 @@ def test_root_route_returns_liveness_payload():
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "service": "zk-llm-turbo"}
+
+
+def test_get_heartbeat_returns_snet_liveness_payload():
+    with TestClient(server.app) as client:
+        response = client.get("/heartbeat")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "service": "zk-llm-turbo",
+        "serviceID": "zk_llm1",
+    }
+
+
+def test_post_heartbeat_returns_snet_liveness_payload():
+    with TestClient(server.app) as client:
+        response = client.post("/heartbeat", json={"op": "heartbeat"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "service": "zk-llm-turbo",
+        "serviceID": "zk_llm1",
+    }
 
 
 def test_layer_returns_503_when_model_unavailable(monkeypatch):

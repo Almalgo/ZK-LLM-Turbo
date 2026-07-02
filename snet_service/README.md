@@ -13,6 +13,31 @@ This directory contains starter templates for routing SingularityNet daemon traf
 
 The legacy `POST /api/infer` endpoint is backward-compat only and not the primary Milestone 5 route.
 
+## Preferred mainnet deployment: Full-Stack HaaS
+
+The preferred mainnet deployment is SingularityNET Publisher Full-Stack HaaS:
+
+- Publisher runs the daemon.
+- Publisher builds and runs the service runtime from the repository root.
+- The root `Dockerfile` starts `python -u runpod_handler.py`.
+- `runpod_handler.py` calls `customer_main.run(input_data)`.
+
+The required root files are:
+
+```text
+customer_main.py
+requirements.txt
+profile.json
+runpod_handler.py
+Dockerfile
+```
+
+Detailed operator instructions are in:
+
+```text
+docs/deploy-full-haas.md
+```
+
 ## Full-Stack Hosting-as-a-Service (HaaS) in Publisher
 
 If you chose **Full-Stack Hosting-as-a-Service (HaaS)** in the Publisher portal, SNET builds and deploys the service from the GitHub repository and separately manages the daemon.
@@ -27,16 +52,13 @@ runpod_handler.py
 Dockerfile
 ```
 
-For Full-Stack HaaS, the root `Dockerfile` keeps the required SNET/RunPod handler path available. The image entrypoint chooses deployment mode as follows:
+For Full-Stack HaaS, the root `Dockerfile` is the SNET/RunPod handler image, not the FastAPI server image. The root handler starts:
 
 ```text
-SERVICE_MODE=runpod|haas|snet -> python -u runpod_handler.py
-SERVICE_MODE=fastapi|http|coolify -> uvicorn server.server:app
-PORT set with SERVICE_MODE unset -> uvicorn server.server:app
-no PORT and SERVICE_MODE unset -> python -u runpod_handler.py
+python -u runpod_handler.py
 ```
 
-This keeps SNET Publisher compatible by default while allowing Coolify to run the same root image as an HTTP API when it injects `PORT` or when `SERVICE_MODE=fastapi` is set. For an explicit Coolify deployment, `Dockerfile.fastapi` and `docker-compose.yml` are also provided.
+`Dockerfile.fastapi` remains available for optional local/Coolify-style HTTP testing.
 
 `runpod_handler.py` imports `customer_main.py` and calls:
 

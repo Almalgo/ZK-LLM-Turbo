@@ -1,9 +1,11 @@
 # Deployment: Coolify API and SNET Publisher
 
-This repo supports two deployment targets from the same codebase:
+This repo supports two deployment targets from the same codebase. The preferred
+production path is now Full-Stack HaaS, where Publisher hosts both the daemon
+and service runtime. See `docs/deploy-full-haas.md`.
 
-1. Coolify-hosted FastAPI service for `https://zkllm.almalgo.com/`.
-2. SingularityNET Publisher / Full-Stack HaaS with SNET-hosted daemon.
+1. SingularityNET Publisher Full-Stack HaaS.
+2. Optional Coolify-hosted FastAPI service for local/rollback testing.
 
 ## Coolify FastAPI deployment
 
@@ -17,13 +19,8 @@ Recommended Coolify settings:
   - `PORT=8000`
   - `ZKLLM_SERVER_MODEL_DTYPE=float32`
 
-Alternative root-image mode:
-
-- Dockerfile: `Dockerfile`
-- Environment:
-  - `SERVICE_MODE=fastapi`
-  - `PORT=8000`
-  - `ZKLLM_SERVER_MODEL_DTYPE=float32`
+Do not use the root `Dockerfile` for Coolify. The root `Dockerfile` is the
+Full-Stack HaaS image and starts `runpod_handler.py`.
 
 Expected public checks after deployment:
 
@@ -49,7 +46,7 @@ If TLS verification fails, replace the self-signed certificate with a valid publ
 
 ## SNET Publisher / Full-Stack HaaS
 
-Use the root `Dockerfile` for SNET Full-Stack HaaS. With no `PORT` and no `SERVICE_MODE`, it defaults to RunPod/HaaS mode:
+Use the root `Dockerfile` for SNET Full-Stack HaaS. It starts:
 
 ```text
 python -u runpod_handler.py
