@@ -85,7 +85,17 @@ This avoids loading TinyLlama during the Publisher profiling step.
 
 ## Proxy environment
 
-Configure these environment variables in the Publisher Full-Stack HaaS service:
+The proxy has a built-in default backend:
+
+```text
+https://zkllm.almalgo.com
+```
+
+If Publisher HaaS does not expose runtime environment-variable configuration,
+the service can still deploy with no HAAS env vars. Use env vars only when the
+platform makes them available or when overriding the default backend.
+
+Optional environment overrides:
 
 ```env
 ZKLLM_BACKEND_BASE_URL=https://zkllm.almalgo.com
@@ -97,10 +107,13 @@ ZKLLM_PROXY_FAIL_OPEN_HEALTH=true
 
 Behavior:
 
-- `ZKLLM_BACKEND_BASE_URL` is required for `session` and `layer` operations.
+- `ZKLLM_BACKEND_BASE_URL` overrides the built-in backend URL.
 - If `ZKLLM_BACKEND_AUTH_TOKEN` is set, the proxy forwards it as a bearer token.
 - Health and profiling stay `SERVING` by default even if the backend is down.
 - Backend reachability diagnostics are included in the health response.
+- If HaaS cannot provide `ZKLLM_BACKEND_AUTH_TOKEN`, the self-hosted backend must
+  allow unauthenticated calls from the HAAS proxy path or use another network
+  control outside this app.
 
 Example health response:
 

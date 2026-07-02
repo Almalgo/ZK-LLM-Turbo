@@ -15,6 +15,7 @@ import requests
 
 SERVICE_ID = "zk_llm1"
 SERVICE_NAME = "zk-llm-turbo"
+DEFAULT_BACKEND_BASE_URL = "https://zkllm.almalgo.com"
 LAYER_OPERATIONS = {"qkv", "o_proj", "ffn_gate_up", "ffn_down", "ffn_merged"}
 
 
@@ -25,7 +26,7 @@ def _error(message: str, error_type: str = "InvalidInput", **extra) -> dict:
 
 
 def _backend_base_url() -> str | None:
-    value = os.getenv("ZKLLM_BACKEND_BASE_URL", "").strip()
+    value = os.getenv("ZKLLM_BACKEND_BASE_URL", DEFAULT_BACKEND_BASE_URL).strip()
     return value.rstrip("/") if value else None
 
 

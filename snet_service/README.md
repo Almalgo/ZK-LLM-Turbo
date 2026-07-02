@@ -85,7 +85,10 @@ Supported HaaS proxy operations:
 - `session`: forwards the existing `POST /api/session` payload to the configured backend.
 - `layer`: forwards the existing `POST /api/layer` payload to the configured backend.
 
-Required proxy environment:
+The proxy defaults to `https://zkllm.almalgo.com`, so Publisher can deploy it
+even if the HaaS interface does not expose runtime environment variables.
+
+Optional proxy environment overrides:
 
 ```env
 ZKLLM_BACKEND_BASE_URL=https://zkllm.almalgo.com

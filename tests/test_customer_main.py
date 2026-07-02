@@ -17,6 +17,7 @@ class FakeResponse:
 
 def test_health_without_backend_configured_stays_serving(monkeypatch):
     monkeypatch.delenv("ZKLLM_BACKEND_BASE_URL", raising=False)
+    monkeypatch.setattr("customer_main.DEFAULT_BACKEND_BASE_URL", "")
 
     result = run({"op": "health"})
 
@@ -34,6 +35,7 @@ def test_health_without_backend_configured_stays_serving(monkeypatch):
 
 def test_heartbeat_alias_returns_proxy_health(monkeypatch):
     monkeypatch.delenv("ZKLLM_BACKEND_BASE_URL", raising=False)
+    monkeypatch.setattr("customer_main.DEFAULT_BACKEND_BASE_URL", "")
 
     result = run({"op": "heartbeat"})
 
@@ -116,6 +118,7 @@ def test_session_requires_public_context(monkeypatch):
 
 def test_session_requires_backend_url(monkeypatch):
     monkeypatch.delenv("ZKLLM_BACKEND_BASE_URL", raising=False)
+    monkeypatch.setattr("customer_main.DEFAULT_BACKEND_BASE_URL", "")
 
     result = run({"op": "session", "public_context_b64": "ctx"})
 
