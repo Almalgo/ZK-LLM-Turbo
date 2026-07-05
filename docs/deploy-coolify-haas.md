@@ -148,13 +148,25 @@ serviceHeartbeatURL: ""
 Get "": unsupported protocol scheme ""
 ```
 
-Expected daemon configuration:
+Preferred live HAAS daemon configuration:
 
 ```text
 service_id: zk_llm2
 service_endpoint: https://zkllm.almalgo.com/
 service_heartbeat_type: http
 serviceHeartbeatURL: https://zkllm.almalgo.com/heartbeat
+```
+
+If HaaS Daemon Only cannot set `heartbeat_endpoint`, the SNET daemon source
+shows the safe fallback is to set `service_heartbeat_type` to `none`. Do not use
+`service_heartbeat_type: http` with an empty heartbeat endpoint; that causes the
+daemon to call `GET ""` and mark the service offline.
+
+```text
+Fallback only:
+service_endpoint: https://zkllm.almalgo.com
+service_heartbeat_type: none
+heartbeat_endpoint: ""
 ```
 
 If marketplace metadata still references the old full-stack hosted route,
