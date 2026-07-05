@@ -80,7 +80,7 @@ Health and profiling are intentionally lightweight and intentionally minimal:
 
 ```json
 {
-  "serviceID": "zk_llm1",
+  "serviceID": "zk_llm2",
   "status": "SERVING"
 }
 ```
@@ -127,7 +127,7 @@ Example `proxy_health` response:
 
 ```json
 {
-  "serviceID": "zk_llm1",
+  "serviceID": "zk_llm2",
   "service": "zk-llm-turbo",
   "status": "SERVING",
   "mode": "proxy",
@@ -225,7 +225,7 @@ PY
 Expected output:
 
 ```text
-{'serviceID': 'zk_llm1', 'service': 'zk-llm-turbo', 'status': 'SERVING', 'mode': 'proxy', ...}
+{'serviceID': 'zk_llm2', 'status': 'SERVING'}
 ```
 
 Run focused tests:

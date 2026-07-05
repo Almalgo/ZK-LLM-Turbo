@@ -210,11 +210,12 @@ Recommended operator checks while in dashboard read-only state:
 
 1. Confirm the service is selected as:
    - Organization: `almalgo_labs`
-   - Service: `zk_llm1`
-   - Hosting-as-a-Service enabled
+   - Service: `zk_llm2`
+   - Daemon Only Hosting-as-a-Service enabled
 2. Confirm the Hosted Service status is `UP`; if it is `ERROR`, inspect Hosted Service logs before daemon logs.
-3. Confirm the Daemon Service Endpoint is the SNET Hosted Service base URL, not GitHub, localhost, or the HaaS orchestrator API URL.
-4. Confirm these routes return 200 on the Hosted Service URL:
+3. Confirm the Daemon Service Endpoint is the Coolify service base URL, not GitHub, localhost, or the HaaS orchestrator API URL:
+   - `https://zkllm.almalgo.com`
+4. Confirm these routes return 200 on the Coolify service URL:
    - `GET /`
    - `GET /health`
    - `GET /heartbeat`
@@ -226,13 +227,14 @@ Recommended operator checks while in dashboard read-only state:
    - Logs and action controls should appear once status becomes `UP`.
 
 If HaaS daemon logs show heartbeat checks against
-`https://api.haas.singularitynet.dev/orchestrator/...` returning 503, first make
-the Hosted Service `UP`, then update the Daemon Service Endpoint to the Hosted
-Service base URL and redeploy/restart the daemon. After the hosted service returns
-HTTP 200 for `/`, `/heartbeat`, and `/health`, reset marketplace health backoff:
+`https://api.haas.singularitynet.dev/orchestrator/...` returning 503, the daemon
+is still pointing at the Full-Stack HaaS orchestrator path. Update the Daemon
+Service Endpoint to the Coolify base URL and redeploy/restart the daemon. After
+the Coolify service returns HTTP 200 for `/`, `/heartbeat`, and `/health`, reset
+marketplace health backoff:
 
 ```text
-https://marketplace-mt-v2.singularitynet.io/service-status/org/almalgo_labs/service/zk_llm1/health/reset
+https://marketplace-mt-v2.singularitynet.io/service-status/org/almalgo_labs/service/zk_llm2/health/reset
 ```
 
 ## Files

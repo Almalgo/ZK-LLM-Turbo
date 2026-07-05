@@ -13,7 +13,7 @@ from urllib.parse import urljoin
 
 import requests
 
-SERVICE_ID = "zk_llm1"
+SERVICE_ID = os.getenv("SNET_SERVICE_ID", "zk_llm2")
 SERVICE_NAME = "zk-llm-turbo"
 DEFAULT_BACKEND_BASE_URL = "https://zkllm.almalgo.com"
 LAYER_OPERATIONS = {"qkv", "o_proj", "ffn_gate_up", "ffn_down", "ffn_merged"}

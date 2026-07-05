@@ -20,7 +20,7 @@ logger = get_logger("server")
 load_dotenv("server/config/credentials.env")
 
 SERVICE_NAME = "zk-llm-turbo"
-SNET_SERVICE_ID = "zk_llm1"
+SNET_SERVICE_ID = os.getenv("SNET_SERVICE_ID", "zk_llm2")
 
 
 def _check_hexl():
@@ -145,6 +145,22 @@ async def heartbeat_rpc() -> dict:
 
 app.include_router(inference_router)
 app.include_router(session_router)
+
+
+@app.post("/session")
+async def session_rpc_alias(payload: dict) -> dict:
+    """SNET HTTP service mode calls POST paths that match proto method names."""
+    from server.handlers.session_handler import SessionRequest, create_session
+
+    return await create_session(SessionRequest(**payload))
+
+
+@app.post("/layer")
+async def layer_rpc_alias(payload: dict) -> dict:
+    """SNET HTTP service mode calls POST paths that match proto method names."""
+    from server.handlers.inference_handler import LayerRequest, process_layer
+
+    return await process_layer(LayerRequest(**payload))
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))

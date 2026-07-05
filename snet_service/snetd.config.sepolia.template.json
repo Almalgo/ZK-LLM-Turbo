@@ -6,7 +6,10 @@
   "daemon_type": "http",
   "auto_ssl_domain": "<DOMAIN>",
   "passthrough_enabled": true,
-  "service_endpoint": "http://127.0.0.1:8000",
+  "service_endpoint": "<SERVICE_ENDPOINT>",
+  "service_heartbeat_type": "http",
+  "heartbeat_endpoint": "<SERVICE_HEARTBEAT_ENDPOINT>",
+  "service_timeout": "15m",
   "ethereum_json_rpc_http_endpoint": "<SEPOLIA_RPC_URL>",
   "ipfs_endpoint": "https://ipfs.singularitynet.io:443",
   "log": {

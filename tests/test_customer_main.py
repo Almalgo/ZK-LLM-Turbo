@@ -21,7 +21,7 @@ def test_health_returns_minimal_haas_serving_status(monkeypatch):
 
     result = run({"op": "health"})
 
-    assert result == {"serviceID": "zk_llm1", "status": "SERVING"}
+    assert result == {"serviceID": "zk_llm2", "status": "SERVING"}
 
 
 def test_heartbeat_alias_returns_proxy_health(monkeypatch):
@@ -30,7 +30,7 @@ def test_heartbeat_alias_returns_proxy_health(monkeypatch):
 
     result = run({"op": "heartbeat"})
 
-    assert result == {"serviceID": "zk_llm1", "status": "SERVING"}
+    assert result == {"serviceID": "zk_llm2", "status": "SERVING"}
 
 
 def test_proxy_health_without_backend_configured_stays_serving(monkeypatch):
@@ -39,7 +39,7 @@ def test_proxy_health_without_backend_configured_stays_serving(monkeypatch):
 
     result = run({"op": "proxy_health"})
 
-    assert result["serviceID"] == "zk_llm1"
+    assert result["serviceID"] == "zk_llm2"
     assert result["status"] == "SERVING"
     assert result["mode"] == "proxy"
     assert result["backend"] == {

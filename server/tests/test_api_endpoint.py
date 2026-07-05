@@ -80,7 +80,7 @@ def test_get_health_returns_snet_payload_without_model_load(monkeypatch):
     assert response.json() == {
         "status": "ok",
         "service": "zk-llm-turbo",
-        "serviceID": "zk_llm1",
+        "serviceID": "zk_llm2",
         "model": "test-model",
         "model_status": "not_loaded",
         "model_error": None,
@@ -106,7 +106,7 @@ def test_post_health_matches_publisher_proto_mapping(monkeypatch):
     assert response.json() == {
         "status": "ok",
         "service": "zk-llm-turbo",
-        "serviceID": "zk_llm1",
+        "serviceID": "zk_llm2",
         "model": "test-model",
         "model_status": "not_loaded",
         "model_error": None,
@@ -129,7 +129,7 @@ def test_get_heartbeat_returns_snet_liveness_payload():
     assert response.json() == {
         "status": "ok",
         "service": "zk-llm-turbo",
-        "serviceID": "zk_llm1",
+        "serviceID": "zk_llm2",
     }
 
 
@@ -141,7 +141,7 @@ def test_post_heartbeat_returns_snet_liveness_payload():
     assert response.json() == {
         "status": "ok",
         "service": "zk-llm-turbo",
-        "serviceID": "zk_llm1",
+        "serviceID": "zk_llm2",
     }
 
 

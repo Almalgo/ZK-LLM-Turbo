@@ -4,6 +4,8 @@
   "daemon_type": "http",
   "passthrough_enabled": true,
   "service_endpoint": "http://127.0.0.1:8000",
+  "service_heartbeat_type": "http",
+  "heartbeat_endpoint": "http://127.0.0.1:8000/heartbeat",
   "log": {
     "level": "info",
     "output": {

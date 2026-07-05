@@ -2,31 +2,12 @@ syntax = "proto3";
 
 package zk_llm;
 
-import "google/api/annotations.proto";
-
 option go_package = "zk_llm.api";
 
 service ZKLLMService {
-  rpc Health(HealthRequest) returns (HealthResponse) {
-    option (google.api.http) = {
-      post: "/health"
-      body: "*"
-    };
-  }
-
-  rpc Session(SessionRequest) returns (SessionResponse) {
-    option (google.api.http) = {
-      post: "/api/session"
-      body: "*"
-    };
-  }
-
-  rpc Layer(LayerRequest) returns (LayerResponse) {
-    option (google.api.http) = {
-      post: "/api/layer"
-      body: "*"
-    };
-  }
+  rpc health(HealthRequest) returns (HealthResponse) {}
+  rpc session(SessionRequest) returns (SessionResponse) {}
+  rpc layer(LayerRequest) returns (LayerResponse) {}
 }
 
 message HealthRequest {

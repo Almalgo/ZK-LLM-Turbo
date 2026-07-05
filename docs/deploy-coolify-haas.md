@@ -1,10 +1,6 @@
-# Legacy: Coolify Service + SingularityNET HAAS Daemon Deployment
+# Coolify Service + SingularityNET HAAS Daemon Only Deployment
 
-This split deployment remains documented for rollback or debugging, but it is
-not the preferred production path. Use `docs/deploy-full-haas.md` when both the
-daemon and service runtime should be hosted by SingularityNET Publisher.
-
-Legacy split deployment shape:
+Current production deployment shape:
 
 - Coolify runs the FastAPI service runtime.
 - SingularityNET Publisher HAAS runs only the daemon.
@@ -14,9 +10,8 @@ Legacy split deployment shape:
 
 ```text
 Organization ID: almalgo_labs
-Service ID: zk_llm1
-Daemon ID: 2b4d4f3b-c043-4671-ad6a-697012038574
-Hosted Service ID kept for rollback: cb4c9cfb-bbf9-49b2-8357-d18926a7a5df
+Service ID: zk_llm2
+Daemon ID: de4cc165-8a62-48ed-bfb1-4bb62bf99d51
 Coolify service URL: https://zkllm.almalgo.com
 ```
 
@@ -36,10 +31,17 @@ snet_service/proto/zk_llm_http_api.proto
 It maps SNET methods onto HTTP routes:
 
 ```text
-Health  -> POST /health
-Session -> POST /api/session
-Layer   -> POST /api/layer
+health  -> POST /health
+session -> POST /session
+layer   -> POST /layer
 ```
+
+The SingularityNET HTTP service integration supports POST JSON only, no
+streaming, and a single proto file. The daemon calls HTTP paths that match the
+proto method names, so the Publisher proto intentionally does not use
+`google.api.http` annotations. The FastAPI app keeps `/api/session` and
+`/api/layer` for direct/internal clients, but exposes `/session` and `/layer`
+for SNET HTTP service compatibility.
 
 ## Coolify application settings
 
@@ -69,6 +71,7 @@ Recommended Coolify environment:
 
 ```bash
 PORT=8000
+SNET_SERVICE_ID=zk_llm2
 ZKLLM_SERVER_MODEL_DTYPE=float32
 HF_HOME=/data/hf-cache
 TRANSFORMERS_CACHE=/data/hf-cache
@@ -94,10 +97,24 @@ GET  /health
 POST /health
 ```
 
+It must also expose SNET HTTP method aliases:
+
+```text
+POST /session
+POST /layer
+```
+
 The HAAS daemon backend service endpoint must be the Coolify base URL only:
 
 ```text
 https://zkllm.almalgo.com
+```
+
+If Publisher exposes a separate heartbeat or health endpoint field, set it
+explicitly to:
+
+```text
+https://zkllm.almalgo.com/heartbeat
 ```
 
 Do not configure the daemon service endpoint with any path suffix:
@@ -117,11 +134,28 @@ In Publisher:
 2. Do not create a new HAAS hosted service runtime.
 3. Redeploy or update only the daemon.
 4. Set the daemon backend service endpoint to the Coolify base URL.
-5. Confirm the published metadata still maps to:
+5. If a separate heartbeat endpoint field exists, set it to `https://zkllm.almalgo.com/heartbeat`.
+6. Confirm the published metadata still maps to:
    - `almalgo_labs`
-   - `zk_llm1`
+   - `zk_llm2`
    - the correct group and payment settings
    - the correct published daemon endpoint
+
+The daemon log should not show an empty heartbeat URL. This is bad:
+
+```text
+serviceHeartbeatURL: ""
+Get "": unsupported protocol scheme ""
+```
+
+Expected daemon configuration:
+
+```text
+service_id: zk_llm2
+service_endpoint: https://zkllm.almalgo.com/
+service_heartbeat_type: http
+serviceHeartbeatURL: https://zkllm.almalgo.com/heartbeat
+```
 
 If marketplace metadata still references the old full-stack hosted route,
 republish metadata and allow indexing/cache propagation.

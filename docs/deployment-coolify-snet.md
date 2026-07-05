@@ -1,11 +1,12 @@
 # Deployment: Coolify API and SNET Publisher
 
-This repo supports two deployment targets from the same codebase. The preferred
-production path is now Full-Stack HaaS, where Publisher hosts the daemon and a
-lightweight proxy service. See `docs/deploy-full-haas.md`.
+This repo supports two deployment targets from the same codebase. The current
+production path is Daemon Only HaaS with the FastAPI runtime hosted on Coolify.
+See `docs/deploy-coolify-haas.md`.
 
-1. SingularityNET Publisher Full-Stack HaaS.
-2. Optional Coolify-hosted FastAPI service for local/rollback testing.
+1. Coolify-hosted FastAPI service runtime.
+2. SingularityNET Publisher Daemon Only HaaS.
+3. Full-Stack HaaS lightweight proxy remains documented for rollback/history.
 
 ## Coolify FastAPI deployment
 
@@ -44,18 +45,25 @@ If these commands return `503 no available server`, Coolify routing has no healt
 
 If TLS verification fails, replace the self-signed certificate with a valid public certificate before using the URL in SNET Publisher.
 
-## SNET Publisher / Full-Stack HaaS
+## SNET Publisher / Daemon Only HaaS
 
-Use the root `Dockerfile` for SNET Full-Stack HaaS. It starts:
+Use Publisher Daemon Only for `almalgo_labs / zk_llm2`.
+
+```text
+Service endpoint: https://zkllm.almalgo.com
+Heartbeat endpoint: https://zkllm.almalgo.com/heartbeat
+Service heartbeat type: http
+```
+
+The daemon heartbeat docs require `heartbeat_endpoint` to be a valid
+`http|https|grpc` URL. If Publisher does not expose that field, support must set
+it server-side; otherwise daemon logs show `serviceHeartbeatURL: ""` and the
+marketplace will mark the service offline.
+
+Full-Stack HaaS uses the root `Dockerfile` and starts:
 
 ```text
 python -u runpod_handler.py
-```
-
-The HaaS wrapper calls `customer_main.run(input_data)`. `profile.json` is intentionally lightweight and exercises the health path:
-
-```json
-{"input":{"op":"health"}}
 ```
 
 For Publisher metadata, upload/use:
@@ -63,9 +71,9 @@ For Publisher metadata, upload/use:
 - Proto: `snet_service/proto/zk_llm_http_api.proto`
 - Package/service: `zk_llm.ZKLLMService`
 - HTTP mappings:
-  - `Health` -> `POST /health`
-  - `Session` -> `POST /api/session`
-  - `Layer` -> `POST /api/layer`
+  - `health` -> `POST /health`
+  - `session` -> `POST /session`
+  - `layer` -> `POST /layer`
 
 The Publisher-hosted HaaS service forwards session/layer requests to the
 self-hosted FastAPI backend. The FastAPI backend implements matching HTTP routes
