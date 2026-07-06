@@ -1,0 +1,24 @@
+FROM debian:bookworm-slim
+
+ARG SNETD_VERSION=v6.2.2
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL \
+      "https://github.com/singnet/snet-daemon/releases/download/${SNETD_VERSION}/snetd-linux-amd64-${SNETD_VERSION}" \
+      -o /usr/local/bin/snetd \
+    && chmod +x /usr/local/bin/snetd
+
+WORKDIR /app
+
+COPY snet_service/snetd-entrypoint.sh /usr/local/bin/snetd-entrypoint
+
+RUN chmod +x /usr/local/bin/snetd-entrypoint \
+    && mkdir -p /data/snetd/etcd /data/snetd/logs \
+    && chmod 700 /data/snetd/etcd
+
+EXPOSE 7000
+
+ENTRYPOINT ["/usr/local/bin/snetd-entrypoint"]
